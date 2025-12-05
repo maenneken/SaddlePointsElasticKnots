@@ -1,0 +1,85 @@
+cmake_minimum_required(VERSION 3.20)
+project(KnotSimulation LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Optional: default build type
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+# -------------------------------
+# 1. Add 3rdparty libraries
+# -------------------------------
+add_subdirectory(3rdparty/polyscope)
+# Add MeshFEM
+
+if(NOT MSVC)
+    add_compile_options(-Wno-error=changes-meaning)
+endif()
+add_subdirectory(
+    3rdparty/ElasticKnots/3rdparty/ElasticRods/3rdparty/MeshFEM
+    ${CMAKE_BINARY_DIR}/MeshFEM_build
+)
+
+# -------------------------------
+# 2. Create a minimal ElasticKnots subset library
+# -------------------------------
+add_library(ElasticKnotsSubset
+    3rdparty/ElasticKnots/ContactProblem.cc  
+    # only .cc files that actually need to be compiled
+)
+
+# Include directories for ElasticKnots and dependencies
+
+target_include_directories(ElasticKnotsSubset PRIVATE
+    3rdparty/ElasticKnots/3rdparty
+    3rdparty/ElasticKnots/3rdparty/ElasticRods/3rdparty/libigl/include
+    3rdparty/ElasticKnots/3rdparty/ElasticRods/3rdparty/MeshFEM/src/lib
+    3rdparty/ElasticKnots/3rdparty/Tight-Inclusion/src
+    3rdparty/ElasticKnots/3rdparty/ipc-toolkit/src
+    3rdparty/ElasticKnots/build/_deps/robin-map-src/include
+    3rdparty/ElasticKnots/build/_deps/abseil-src
+    3rdparty/ElasticKnots/build/_deps/spdlog-src/include
+)
+# Link Eigen (required by ElasticKnots/ElasticRods)
+find_package(Eigen3 REQUIRED)
+target_link_libraries(ElasticKnotsSubset PRIVATE Eigen3::Eigen MeshFEM)
+
+# -------------------------------
+# 3. Create main executable
+# -------------------------------
+add_executable(test1
+    test1.cpp
+    helpers.cpp
+    KnotVisualizer.cpp
+)
+
+# Include current directory for your headers
+
+target_include_directories(test1 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+    3rdparty/ElasticKnots/3rdparty
+    3rdparty/ElasticKnots/3rdparty/ElasticRods/3rdparty/libigl/include
+    3rdparty/ElasticKnots/3rdparty/ElasticRods/3rdparty/MeshFEM/src/lib
+    3rdparty/ElasticKnots/3rdparty/Tight-Inclusion/src
+    3rdparty/ElasticKnots/3rdparty/ipc-toolkit/src
+    3rdparty/ElasticKnots/build/_deps/robin-map-src/include
+    3rdparty/ElasticKnots/build/_deps/abseil-src
+    3rdparty/ElasticKnots/build/_deps/spdlog-src/include)
+
+# Suppress warnings
+if(MSVC)
+    target_compile_options(test1 PRIVATE /W0)
+else()
+    target_compile_options(test1 PRIVATE -w)
+endif()
+
+# -------------------------------
+# 4. Link libraries
+# -------------------------------
+
+target_link_libraries(test1 PRIVATE ElasticKnotsSubset MeshFEM polyscope Eigen3::Eigen)
+
+
