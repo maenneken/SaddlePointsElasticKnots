@@ -1,0 +1,6 @@
+[submodule "3rdparty/ElasticKnots"]
+	path = 3rdparty/ElasticKnots
+	url = git@github.com:EPFL-LGG/ElasticKnots.git
+[submodule "3rdparty/polyscope"]
+	path = 3rdparty/polyscope
+	url = https://github.com/nmwsharp/polyscope.git
