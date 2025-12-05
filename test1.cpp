@@ -41,7 +41,7 @@ int main() {
 
     std::cout << "created pr"<< std::endl;
 
-    /** 
+    
     // 4. Wrap into PeriodicRodList
     PeriodicRodList rod_list = PeriodicRodList(pr);
 
@@ -70,6 +70,5 @@ int main() {
     // rod_list.hessian()
     cP.hessian();
     compute_equilibrium(rod_list,problemOptions);
-    **/
     return 0;
 }

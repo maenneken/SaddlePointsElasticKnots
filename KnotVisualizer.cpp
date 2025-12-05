@@ -11,6 +11,8 @@ void KnotVisualizer::setKnot(const std::vector<Eigen::Vector3d>& pts, const doub
     for (size_t i = 0; i + 1 < pts.size(); ++i)
         edges.push_back({i, i+1});
 
+    edges.push_back({0,pts.size()-1});
+
     curve = polyscope::registerCurveNetwork("knot", pts, edges);
     curve->setRadius(radius, true);
     
