@@ -99,24 +99,22 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # More binaries
 ################################################################################
 # add_subdirectory(tests)  # TODO: write unit tests
+#[[
+#Disable all python bindings
 
-
-# --- FORCE-disable libigl predicates everywhere -----------------------------
-set(LIBIGL_WITH_PREDICATES OFF CACHE BOOL "Disable libigl predicates" FORCE)
-set(LIBIGL_PREDICATES OFF CACHE BOOL "Disable libigl predicates" FORCE)
-
-# Some projects look for igl predicates under different names:
-set(IGL_WITH_PREDICATES OFF CACHE BOOL "Disable igl predicates" FORCE)
-set(IGL_PREDICATES OFF CACHE BOOL "Disable igl predicates" FORCE)
-
-set(MESHFEM_WITH_TRIANGLE_PREDICATES OFF CACHE BOOL "" FORCE)
-set(MESHFEM_DISABLE_IGL_PREDICATES ON CACHE BOOL "" FORCE)
-
+set(MESHFEM_WITH_PYTHON OFF CACHE BOOL "" FORCE)
+set(MESHFEM_WITH_IGL OFF CACHE BOOL "" FORCE)       # optional, but avoids extra issues
+set(ELASTICROD_WITH_PYTHON OFF CACHE BOOL "" FORCE)
+set(MESHFEM_WITH_PYTHON OFF CACHE BOOL "" FORCE)
+set(MESHFEM_BUILD_PYTHON_BINDINGS OFF CACHE BOOL "" FORCE)
+set(PYBIND11_FINDPYTHON OFF CACHE BOOL "" FORCE)
+set(PYBIND11_INSTALL OFF CACHE BOOL "" FORCE)
+]]
 
 
 set(LIBIGL_WITH_OPENGL_GLFW OFF CACHE BOOL "" FORCE)
 set(LIBIGL_WITH_OPENGL_GLFW_IMGUI OFF CACHE BOOL "" FORCE)
-set(POLYSCOPE_USE_SYSTEM_GLAD OFF CACHE BOOL "Use system glad")
+#set(POLYSCOPE_USE_SYSTEM_GLAD OFF CACHE BOOL "Use system glad")
 add_subdirectory(3rdparty/polyscope) #Polyscope
 
 add_subdirectory(3rdparty/ElasticKnots)
@@ -155,6 +153,13 @@ add_executable(test1
     KnotVisualizer.cpp
 )
 
+add_executable(FindSaddle
+    FindSaddlePoint.cpp
+    helpers.cpp
+    KnotVisualizer.cpp
+)
+
 
 target_link_libraries(test1 PRIVATE polyscope ElasticKnots)
+target_link_libraries(FindSaddle PRIVATE polyscope ElasticKnots)
 

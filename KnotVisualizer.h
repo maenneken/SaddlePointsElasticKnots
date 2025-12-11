@@ -9,7 +9,10 @@ public:
     void setKnot(const std::vector<Eigen::Vector3d>& pts, const double radius);
     void updateKnot(const std::vector<Eigen::Vector3d>& pts);
     void show();
+    void frameTick();
+    void setUserCallback(std::function<void()> f);
 
 private:
     polyscope::CurveNetwork* curve = nullptr;
+    std::function<void()> userCallback;
 };

@@ -20,10 +20,22 @@ void KnotVisualizer::setKnot(const std::vector<Eigen::Vector3d>& pts, const doub
 
 void KnotVisualizer::updateKnot(const std::vector<Eigen::Vector3d>& pts) {
     if (!curve) return;
-
     curve->updateNodePositions(pts);
 }
 
 void KnotVisualizer::show() {
     polyscope::show();
 }
+
+void KnotVisualizer::frameTick() {
+    polyscope::frameTick();
+}
+
+void KnotVisualizer::setUserCallback(std::function<void()> f) {
+    userCallback = f;
+    polyscope::state::userCallback = [this]() {
+        if (userCallback)
+            userCallback();    // draw UI, process buttons
+    };
+}
+

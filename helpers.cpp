@@ -7,7 +7,7 @@
 
 
 
-/** from helpers.py
+/** from 3rdparty/ElasticKnots/python/helpers.py
     def define_periodic_rod(pts, material, rest_curv_rad=np.inf, total_opening_angle=0, minimize_twist=False):
     duplicated_0 = np.linalg.norm(pts[0, :] - pts[-2, :]) < 1e-12
     duplicated_1 = np.linalg.norm(pts[1, :] - pts[-1, :]) < 1e-12
@@ -56,8 +56,6 @@ PeriodicRod define_periodic_rod(std::vector<Eigen::Vector3d> pts, RodMaterial ma
     pr.rod.setBendingEnergyType(ElasticRod::BendingEnergyType::Bergou2010);
 
     return pr;
-
-
 }
 
 /**
@@ -146,6 +144,82 @@ std::vector<Eigen::Vector3d> read_nodes_from_file(std::string &filename){
         throw "not implemented yet";
         return nodes;
     }
-
-
 }
+//extract the positions out of DoFs. Number of points is needed
+std::vector<Eigen::Vector3d> DoFsToPos(Eigen::VectorXd dofs, uint n_pts){
+    std::vector<Eigen::Vector3d> pts;
+    for (uint i = 0; i < 3 * n_pts; i += 3 ){
+        pts.emplace_back(dofs[i],dofs[i+1],dofs[i+2]);
+    }
+    return pts;
+}
+//reduce the knot resolution. Call before defining the knot
+std::vector<Eigen::Vector3d> reduce_knot_resolution(std::vector<Eigen::Vector3d> pts, size_t factor){
+    std::vector<Eigen::Vector3d> reduced_pts;
+    for (uint i = 0; i < pts.size(); i += factor ){
+        reduced_pts.emplace_back(pts[i]);
+    }
+    return reduced_pts;
+}
+//SuiteSparseMatrix to Eigen::MatrixXd (note wll make it semetrik since only uppertriangle is usaly safed)
+Eigen::MatrixXd toEigenDense(SuiteSparseMatrix& ssm){
+    TripletMatrix<Triplet<double>> triplets = ssm.getTripletMatrix();
+    int n = std::max(triplets.m, triplets.n);
+    Eigen::MatrixXd em = Eigen::MatrixXd::Zero(n, n);
+
+    for(size_t k = 0; k< triplets.nnz(); ++k){
+        auto &t = triplets.nz[k];
+        em(t.i,t.j) = t.v;
+        em(t.j,t.i) = t.v;
+    }
+    return em;
+}
+//SuiteSparseMatrix to Eigen::SparseMatrix (note wll make it semetrik since only uppertriangle is usaly safed)
+Eigen::SparseMatrix<double> toEigenSparse(SuiteSparseMatrix& ssm){
+    TripletMatrix<Triplet<double>> triplets = ssm.getTripletMatrix();
+    int n = std::max(triplets.m, triplets.n);
+    std::vector<Eigen::Triplet<double>> eig_t;
+
+    for(size_t k = 0; k < triplets.nnz(); ++k){
+        auto &t = triplets.nz[k];
+        eig_t.emplace_back(t.i,t.j,t.v);
+        eig_t.emplace_back(t.j,t.i,t.v);
+    }
+
+    Eigen::SparseMatrix<double> em(n,n);
+    em.setFromTriplets(eig_t.begin(), eig_t.end());
+    return em;
+}
+Eigen::SparseMatrix<double> enlargeMatrix(Eigen::SparseMatrix<double>& small, size_t newSize){
+    std::vector<Eigen::Triplet<double>> triplets;
+
+    for (size_t k = 0; k < small.outerSize(); ++k) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(small, k); it; ++it) {
+            triplets.emplace_back(it.row(), it.col(), it.value());
+        }
+    }
+    Eigen::SparseMatrix<double> big(newSize,newSize);
+    big.setFromTriplets(triplets.begin(), triplets.end());
+
+    return big;
+}
+//use this instead of cp.hessian(). cp.hessian will fail, if contacts exists
+Eigen::SparseMatrix<double> computeHessian(ContactProblem& cp){
+
+    bool projectionMask = true;    
+    SuiteSparseMatrix result = cp.hessianSparsityPattern();
+
+    //hessian without contactEnergy
+    cp.m_rods.hessian(result);
+
+    Eigen::SparseMatrix<double> H_rod = toEigenSparse(result);
+
+    //compute barrier hessian
+    const bool projectIPCHessian = projectionMask && cp.m_options.projectContactHessianPSD;
+    Eigen::SparseMatrix<double> IPCHessianEigen = cp.m_options.contactStiffness * compute_barrier_potential_hessian(cp.m_collisionMesh, cp.m_rods.deformedPointsMatrix(), cp.m_constraintSet, cp.m_options.dHat, projectIPCHessian);
+
+    Eigen::SparseMatrix<double> resized_IPCHessianEigen = enlargeMatrix(IPCHessianEigen,H_rod.cols());
+
+    return H_rod + resized_IPCHessianEigen;
+}
+

@@ -5,9 +5,7 @@
 
 #include "KnotVisualizer.h"
 
-
 int main() {
-    //TODO https://polyscope.run/ viewer implementieren
     std::string file = "../data/L400-r0.2-UpTo9Crossings/4_1/0033.obj";
     double rod_radius = 0.2;
     std::vector<double> params = {rod_radius, rod_radius};
@@ -20,33 +18,24 @@ int main() {
     );
 
     // 2. Read centerline nodes
-    /** 
-    std::vector<Eigen::Vector3d> centerline = {
-    {0,0,0},
-    {0,1,0},
-    {1,1,0},
-    {1,0,0},
-    {0,0,0},
-    {0,1,0}
-    };
-    **/
     std::vector<Eigen::Vector3d> centerline = read_nodes_from_file(file);
 
     //Set Visulizer
     KnotVisualizer Viewer = KnotVisualizer();
-    Viewer.setKnot(centerline,rod_radius);
+    Viewer.setKnot(centerline,0.01 * rod_radius);
     Viewer.show();
+
 
     PeriodicRod pr = define_periodic_rod(centerline,material);
 
     std::cout << "created pr"<< std::endl;
+
 
     
     // 4. Wrap into PeriodicRodList
     PeriodicRodList rod_list = PeriodicRodList(pr);
 
     std::cout << "created rodlist"<< std::endl;
-
     // 5. Setup problem options
     ContactProblemOptions problemOptions;
     problemOptions.hasCollisions = true;
@@ -69,6 +58,7 @@ int main() {
 
     // rod_list.hessian()
     cP.hessian();
-    compute_equilibrium(rod_list,problemOptions);
+
+    compute_equilibrium(rod_list, problemOptions);
     return 0;
 }
