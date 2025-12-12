@@ -153,6 +153,14 @@ std::vector<Eigen::Vector3d> DoFsToPos(Eigen::VectorXd dofs, uint n_pts){
     }
     return pts;
 }
+//extract the twist out of DoFs. Number of points is needed
+Eigen::VectorXd DoFsToTwist(Eigen::VectorXd dofs, uint n_pts){
+
+    Eigen::VectorXd twist = dofs.segment(3*n_pts,n_pts);
+ 
+    return twist;
+}
+
 //reduce the knot resolution. Call before defining the knot
 std::vector<Eigen::Vector3d> reduce_knot_resolution(std::vector<Eigen::Vector3d> pts, size_t factor){
     std::vector<Eigen::Vector3d> reduced_pts;

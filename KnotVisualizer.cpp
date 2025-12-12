@@ -15,13 +15,44 @@ void KnotVisualizer::setKnot(const std::vector<Eigen::Vector3d>& pts, const doub
 
     curve = polyscope::registerCurveNetwork("knot", pts, edges);
     curve->setRadius(radius, true);
+
+    std::vector<Eigen::Vector3d> grad(pts.size(), Eigen::Vector3d::Zero());
+    Eigen::VectorXd twist = Eigen::VectorXd::Zero(edges.size());
+
+    edge_twist = curve->addEdgeScalarQuantity("twist", twist);
+    edge_twist->setEnabled(true);
+    
+
+    node_grad = curve->addNodeVectorQuantity("node gradient", grad);
+    node_grad->setEnabled(true);
+    node_grad->setVectorLengthScale(1);
+    node_grad->setVectorLengthRange(100);
+    
+
+    contact_force = curve->addNodeVectorQuantity("contct force", grad);
+    contact_force->setEnabled(true);
+    contact_force->setVectorLengthScale(1);
+    contact_force->setVectorLengthRange(100);
+
     
 }
+void KnotVisualizer::colorTwist(Eigen::VectorXd& twist){
+    edge_twist->updateData(twist);
+    edge_twist->setMapRange({twist.minCoeff(),twist.maxCoeff()});
+} 
+void KnotVisualizer::showNodeGradient(const std::vector<Eigen::Vector3d>& grad){
+    node_grad->updateData(grad);
+} 
+void KnotVisualizer::showContactForce(const std::vector<Eigen::Vector3d>& cForce){
+    contact_force->updateData(cForce);
+} 
+
 
 void KnotVisualizer::updateKnot(const std::vector<Eigen::Vector3d>& pts) {
     if (!curve) return;
     curve->updateNodePositions(pts);
 }
+
 
 void KnotVisualizer::show() {
     polyscope::show();
@@ -34,8 +65,7 @@ void KnotVisualizer::frameTick() {
 void KnotVisualizer::setUserCallback(std::function<void()> f) {
     userCallback = f;
     polyscope::state::userCallback = [this]() {
-        if (userCallback)
-            userCallback();    // draw UI, process buttons
+        if (userCallback) userCallback();
     };
 }
 
