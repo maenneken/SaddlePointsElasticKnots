@@ -25,14 +25,17 @@ void KnotVisualizer::setKnot(const std::vector<Eigen::Vector3d>& pts, const doub
 
     node_grad = curve->addNodeVectorQuantity("node gradient", grad);
     node_grad->setEnabled(true);
-    node_grad->setVectorLengthScale(1);
-    node_grad->setVectorLengthRange(100);
+    node_grad->setVectorLengthScale(10);
+
+
+    node_grad_mod = curve->addNodeVectorQuantity("node gradient modified", grad);
+    node_grad_mod->setEnabled(true);
+    node_grad_mod->setVectorLengthScale(10);
     
 
     contact_force = curve->addNodeVectorQuantity("contct force", grad);
     contact_force->setEnabled(true);
     contact_force->setVectorLengthScale(1);
-    contact_force->setVectorLengthRange(100);
 
     
 }
@@ -42,6 +45,9 @@ void KnotVisualizer::colorTwist(Eigen::VectorXd& twist){
 } 
 void KnotVisualizer::showNodeGradient(const std::vector<Eigen::Vector3d>& grad){
     node_grad->updateData(grad);
+} 
+void KnotVisualizer::showNodeGradientModified(const std::vector<Eigen::Vector3d>& grad){
+    node_grad_mod->updateData(grad);
 } 
 void KnotVisualizer::showContactForce(const std::vector<Eigen::Vector3d>& cForce){
     contact_force->updateData(cForce);

@@ -5,15 +5,11 @@
 
 #include "KnotVisualizer.h"
 
+Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0, int> H_sparse, int saddleType){
 
-Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleType){
-    auto g = cp.gradient();
-
-    auto H_sparse = computeHessian(cp);
-    //when there is conntact hessian throws error, because contact creates new entrys in contact hessian. When trying to add them together using  addWithSubSparsity it is not allowed
-    auto R = cp.getVars();
-
-
+    //nothing gets reflected
+    if (saddleType <=0) return g;
+    
     Eigen::MatrixXd H_dense = Eigen::MatrixXd(H_sparse);
 
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(H_dense);
@@ -29,41 +25,92 @@ Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleTyp
     
 
     Eigen::VectorXd g_new = U * g_p;
+
+    return g_new;
+}
+struct HessianAndGradient {
+    Eigen::SparseMatrix<double, 0, int> H;
+    Eigen::VectorXd g;
+};
+//remove all twist entrys -> new Shape n_pts x n_pts, n_pts
+HessianAndGradient removeTwist(Eigen::SparseMatrix<double, 0, int> H_sparse, Eigen::VectorXd g){
+    int n = g.size() * 0.75;
+    Eigen::SparseMatrix<double, 0, int> H_small(n,n);
+
+    std::vector<Eigen::Triplet<double>> triplets;
+
+    for (int k = 0; k < H_sparse.outerSize(); ++k) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(H_sparse, k); it; ++it) {
+            if (it.row() < n && it.col() < n) {
+                triplets.emplace_back(it.row(), it.col(), it.value());
+            }
+        }
+    }
+
+    H_small.setFromTriplets(triplets.begin(), triplets.end());
+
+    Eigen::VectorXd g_small = g.head(n);
+
+    HessianAndGradient result;
+    result.H = H_small;
+    result.g = g_small;
+    return result;
+
+}
+Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleType, bool useTwist){
+
+    auto R = cp.getVars();
+    auto g = cp.gradient();
+    auto H_sparse = computeHessian(cp);
+    Eigen::VectorXd g_new;
+
+    if(!useTwist){
+        
+        HessianAndGradient Hg = removeTwist(H_sparse,g);
+        Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType);
+        //std::cout << g.size() << " " << Hg.g.size() << std::endl;
+        g_new = g;
+        for (size_t i = 0; i < g_new_small.size();++i){
+            g_new(i) = g_new_small(i);
+        }
+
+    }
+    else {
+        g_new = reflectGradient(g, H_sparse,saddleType);
+    }
+
 
     R = R - step * g_new;
 
     cp.setVars(R);
     
-    return u;
+    return g_new;
 
 }
 
-Eigen::VectorXd stepTowardsSaddleNewton(ContactProblem& cp, double step, int saddleType){
-    auto g = cp.gradient();
+Eigen::VectorXd stepTowardsSaddleNewton(ContactProblem& cp, double step, int saddleType, bool useTwist){
 
-    auto H_sparse = computeHessian(cp);
-    //when there is conntact hessian throws error, because contact creates new entrys in contact hessian. When trying to add them together using  addWithSubSparsity it is not allowed
     auto R = cp.getVars();
+    auto g = cp.gradient();
+    auto H_sparse = computeHessian(cp);
+    Eigen::VectorXd g_new;
 
+    if(!useTwist){
+        
+        HessianAndGradient Hg = removeTwist(H_sparse,g);
+        Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType);
+        //std::cout << g.size() << " " << Hg.g.size() << std::endl;
+        g_new = g;
+        for (size_t i = 0; i < g_new_small.size();++i){
+            g_new(i) = g_new_small(i);
+        }
 
-    Eigen::MatrixXd H_dense = Eigen::MatrixXd(H_sparse);
-
-    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(H_dense);
-    auto u = solver.eigenvalues();
-    auto U = solver.eigenvectors();
-
-    Eigen::VectorXd g_p = U.transpose() * g;
-
-    //Eigenvalues are sorted so 0 is always the smallest
-    for (int i = 0; i < saddleType; ++i){
-        g_p(i) *= -1.0;
     }
-    
-
-    Eigen::VectorXd g_new = U * g_p;
+    else {
+        g_new = reflectGradient(g, H_sparse,saddleType);
+    }
 
     Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> newtonSolver;
-
     newtonSolver.compute(H_sparse);
 
     if (newtonSolver.info() != Eigen::Success) {
@@ -79,7 +126,7 @@ Eigen::VectorXd stepTowardsSaddleNewton(ContactProblem& cp, double step, int sad
 
     cp.setVars(R);
     
-    return u;
+    return g_new;
 
 }
 int main(int argc, char** argv) {
@@ -143,18 +190,19 @@ int main(int argc, char** argv) {
     static double stepsize = 0.001;
     static int saddletype = 1;
     static bool running = false;
-    static bool useNewton = false;
+    static bool useNewton = true;
+    static bool useTwist = true;
     static size_t i = 0;
     //set buttons
     Viewer.setUserCallback([&]() {
         //todo add controls to load a Knot and set up a contactproblem with all options + reduceKnotResolution
-        //todo show twist by changing the color of the edge
         //todo show gradient and modified gradient
         ImGui::Begin("Controls");
         ImGui::InputInt("Iterations", &iterations,1000,10000);
         ImGui::InputDouble("stepsize", &stepsize,(0.0001),(0.001),"%.7f");
         ImGui::InputInt("Saddle Type", &saddletype);
         ImGui::Checkbox("Use Newton", &useNewton);
+        ImGui::Checkbox("Use Twist", &useTwist);
         if (ImGui::Button("Find Saddle")) {
             running = true;
             i = 0;                           
@@ -171,11 +219,12 @@ int main(int argc, char** argv) {
     //main loop
     while (!polyscope::windowRequestsClose()) { 
         if (running){
-            Eigen::VectorXd eigenvalues;
+            Eigen::VectorXd g_new;
+            Eigen::VectorXd g_old = cp.gradient();
             if(useNewton){
-                eigenvalues = stepTowardsSaddleNewton(cp,stepsize,saddletype);
+                g_new = stepTowardsSaddleNewton(cp,stepsize,saddletype,useTwist);
             } else {
-                eigenvalues = stepTowardsSaddle(cp,stepsize,saddletype);
+                g_new = stepTowardsSaddle(cp,stepsize,saddletype,useTwist);
             }
             
             if(i % 100 == 0){
@@ -183,18 +232,25 @@ int main(int argc, char** argv) {
                 auto twist = DoFsToTwist(cp.getVars(),n_pts);
                 Viewer.updateKnot(pts);
                 Viewer.colorTwist(twist);
-                Viewer.showNodeGradient(DoFsToPos(cp.gradient(),n_pts));
+                Viewer.showNodeGradient(DoFsToPos(g_old ,n_pts));
+                Viewer.showNodeGradientModified(DoFsToPos(g_new ,n_pts));
                 //Viewer.showContactForce(DoFsToPos(cp.contactForces(),n_pts));
                 Viewer.frameTick();
                 std::cout       <<"It: " << i
                                 << ", current Energy: " << cp.energy() 
-                                << ", Gradient: " << cp.gradient().norm() 
+                                << ", Gradient: " << g_old.norm() 
+                                << ", reflected Gradient: " << g_new.norm()
+                                << ", difference: " << (g_old- g_new).norm()
                                 << ", Position: " << cp.getVars().norm()
                                 << ", Twist Min/Max: " << twist.minCoeff() << " / " <<twist.maxCoeff()
-                                << ", Smallest Eigenvalue: " << eigenvalues(0)
                                 << std::endl << std::endl;
 
             }
+            /** 
+            if(i % 1000 == 0){
+                std::cout << g_old - g_new << std::endl << std::endl;
+            }
+            */
             i++;
         }
         if(i > iterations){
