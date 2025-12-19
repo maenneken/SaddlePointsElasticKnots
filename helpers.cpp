@@ -141,7 +141,18 @@ std::vector<Eigen::Vector3d> read_nodes_from_file(std::string &filename){
         return nodes;
     }
     else if (filename.find(".txt") != std::string::npos){ //it is a .txt file
-        throw "not implemented yet";
+        while (std::getline(file, line)) {
+            if (line.empty()) continue;
+
+            std::istringstream stream(line);
+            double x, y, z;
+
+            stream >> x >> y >> z;
+            nodes.emplace_back(x, y, z);
+
+                
+
+        }
         return nodes;
     }
 }
@@ -198,12 +209,14 @@ Eigen::SparseMatrix<double> toEigenSparse(SuiteSparseMatrix& ssm){
     em.setFromTriplets(eig_t.begin(), eig_t.end());
     return em;
 }
+//enlarge a sparse matrix, and force it to be symetric
 Eigen::SparseMatrix<double> enlargeMatrix(Eigen::SparseMatrix<double>& small, size_t newSize){
     std::vector<Eigen::Triplet<double>> triplets;
 
     for (size_t k = 0; k < small.outerSize(); ++k) {
         for (Eigen::SparseMatrix<double>::InnerIterator it(small, k); it; ++it) {
             triplets.emplace_back(it.row(), it.col(), it.value());
+            triplets.emplace_back(it.col(), it.row(), it.value());
         }
     }
     Eigen::SparseMatrix<double> big(newSize,newSize);
@@ -229,5 +242,31 @@ Eigen::SparseMatrix<double> computeHessian(ContactProblem& cp){
     Eigen::SparseMatrix<double> resized_IPCHessianEigen = enlargeMatrix(IPCHessianEigen,H_rod.cols());
 
     return H_rod + resized_IPCHessianEigen;
+}
+
+//remove all twist entrys -> new Shape n_pts x n_pts, n_pts
+HessianAndGradient removeTwist(Eigen::SparseMatrix<double, 0, int> H_sparse, Eigen::VectorXd g){
+    int n = g.size() * 0.75;
+    Eigen::SparseMatrix<double, 0, int> H_small(n,n);
+
+    std::vector<Eigen::Triplet<double>> triplets;
+
+    for (int k = 0; k < H_sparse.outerSize(); ++k) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(H_sparse, k); it; ++it) {
+            if (it.row() < n && it.col() < n) {
+                triplets.emplace_back(it.row(), it.col(), it.value());
+            }
+        }
+    }
+
+    H_small.setFromTriplets(triplets.begin(), triplets.end());
+
+    Eigen::VectorXd g_small = g.head(n);
+
+    HessianAndGradient result;
+    result.H = H_small;
+    result.g = g_small;
+    return result;
+
 }
 

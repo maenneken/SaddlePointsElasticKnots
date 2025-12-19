@@ -5,7 +5,7 @@
 
 #include "KnotVisualizer.h"
 
-Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0, int> H_sparse, int saddleType){
+Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0, int> H_sparse, int saddleType, double etol){
 
     //nothing gets reflected
     if (saddleType <=0) return g;
@@ -16,11 +16,19 @@ Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0
     auto u = solver.eigenvalues();
     auto U = solver.eigenvectors();
 
+    
+
     Eigen::VectorXd g_p = U.transpose() * g;
 
-    //Eigenvalues are sorted so 0 is always the smallest
-    for (int i = 0; i < saddleType; ++i){
-        g_p(i) *= -1.0;
+    //Eigenvalues are sorted so 0 is always the smallest ignore the ones close to zero
+    int e = 0;
+    for (int i = 0; i < g_p.size() && e < saddleType; ++i){   
+        if( std::abs(u(i)) > etol){
+            g_p(i) *= -1.0;
+            ++e;
+            std::cout << u(i) <<", ";
+        }
+            
     }
     
 
@@ -28,36 +36,8 @@ Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0
 
     return g_new;
 }
-struct HessianAndGradient {
-    Eigen::SparseMatrix<double, 0, int> H;
-    Eigen::VectorXd g;
-};
-//remove all twist entrys -> new Shape n_pts x n_pts, n_pts
-HessianAndGradient removeTwist(Eigen::SparseMatrix<double, 0, int> H_sparse, Eigen::VectorXd g){
-    int n = g.size() * 0.75;
-    Eigen::SparseMatrix<double, 0, int> H_small(n,n);
 
-    std::vector<Eigen::Triplet<double>> triplets;
-
-    for (int k = 0; k < H_sparse.outerSize(); ++k) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(H_sparse, k); it; ++it) {
-            if (it.row() < n && it.col() < n) {
-                triplets.emplace_back(it.row(), it.col(), it.value());
-            }
-        }
-    }
-
-    H_small.setFromTriplets(triplets.begin(), triplets.end());
-
-    Eigen::VectorXd g_small = g.head(n);
-
-    HessianAndGradient result;
-    result.H = H_small;
-    result.g = g_small;
-    return result;
-
-}
-Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleType, bool useTwist){
+Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleType, bool useTwist, double etol){
 
     auto R = cp.getVars();
     auto g = cp.gradient();
@@ -67,7 +47,7 @@ Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleTyp
     if(!useTwist){
         
         HessianAndGradient Hg = removeTwist(H_sparse,g);
-        Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType);
+        Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType, etol);
         //std::cout << g.size() << " " << Hg.g.size() << std::endl;
         g_new = g;
         for (size_t i = 0; i < g_new_small.size();++i){
@@ -76,19 +56,18 @@ Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleTyp
 
     }
     else {
-        g_new = reflectGradient(g, H_sparse,saddleType);
+        g_new = reflectGradient(g, H_sparse,saddleType,etol);
     }
 
-
     R = R - step * g_new;
-
+    
     cp.setVars(R);
     
     return g_new;
 
 }
 
-Eigen::VectorXd stepTowardsSaddleNewton(ContactProblem& cp, double step, int saddleType, bool useTwist){
+Eigen::VectorXd stepTowardsSaddleNewton(ContactProblem& cp, double step, int saddleType, bool useTwist, double etol){
 
     auto R = cp.getVars();
     auto g = cp.gradient();
@@ -98,7 +77,7 @@ Eigen::VectorXd stepTowardsSaddleNewton(ContactProblem& cp, double step, int sad
     if(!useTwist){
         
         HessianAndGradient Hg = removeTwist(H_sparse,g);
-        Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType);
+        Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType,etol);
         //std::cout << g.size() << " " << Hg.g.size() << std::endl;
         g_new = g;
         for (size_t i = 0; i < g_new_small.size();++i){
@@ -107,7 +86,7 @@ Eigen::VectorXd stepTowardsSaddleNewton(ContactProblem& cp, double step, int sad
 
     }
     else {
-        g_new = reflectGradient(g, H_sparse,saddleType);
+        g_new = reflectGradient(g, H_sparse,saddleType, etol);
     }
 
     Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> newtonSolver;
@@ -142,6 +121,9 @@ int main(int argc, char** argv) {
     }
     if (argc >= 3) {
         reductionFactor = std::stod(argv[2]);
+    }
+    if (reductionFactor < 1){
+        reductionFactor = 1;
     }
 
 
@@ -186,8 +168,9 @@ int main(int argc, char** argv) {
     //Save first Knot Vars
     auto startKnot = cp.getVars();
 
-    static int iterations = 1000;
+    static int iterations = 10000;
     static double stepsize = 0.001;
+    static double eigen_tol = 0; //Tolerance to when an eigenvalue is treated like zero
     static int saddletype = 1;
     static bool running = false;
     static bool useNewton = true;
@@ -196,11 +179,15 @@ int main(int argc, char** argv) {
     //set buttons
     Viewer.setUserCallback([&]() {
         //todo add controls to load a Knot and set up a contactproblem with all options + reduceKnotResolution
-        //todo show gradient and modified gradient
+        //todo add flip all neg
+        //Todo add freely-rotating or clamped ends by keeping theta constant (look supplemental.pdf) (g(-1)=0 and remove it from the hessian when calk eigenvalues)
+        //visualize theta n+1
+        //visualize twist gradient and reflected
         ImGui::Begin("Controls");
         ImGui::InputInt("Iterations", &iterations,1000,10000);
         ImGui::InputDouble("stepsize", &stepsize,(0.0001),(0.001),"%.7f");
         ImGui::InputInt("Saddle Type", &saddletype);
+        ImGui::InputDouble("Eigen Zero Tolerance", &eigen_tol, (0.01),(0.1),"%.3f"); 
         ImGui::Checkbox("Use Newton", &useNewton);
         ImGui::Checkbox("Use Twist", &useTwist);
         if (ImGui::Button("Find Saddle")) {
@@ -222,9 +209,9 @@ int main(int argc, char** argv) {
             Eigen::VectorXd g_new;
             Eigen::VectorXd g_old = cp.gradient();
             if(useNewton){
-                g_new = stepTowardsSaddleNewton(cp,stepsize,saddletype,useTwist);
+                g_new = stepTowardsSaddleNewton(cp,stepsize,saddletype,useTwist,eigen_tol);
             } else {
-                g_new = stepTowardsSaddle(cp,stepsize,saddletype,useTwist);
+                g_new = stepTowardsSaddle(cp,stepsize,saddletype,useTwist,eigen_tol);
             }
             
             if(i % 100 == 0){
@@ -236,7 +223,7 @@ int main(int argc, char** argv) {
                 Viewer.showNodeGradientModified(DoFsToPos(g_new ,n_pts));
                 //Viewer.showContactForce(DoFsToPos(cp.contactForces(),n_pts));
                 Viewer.frameTick();
-                std::cout       <<"It: " << i
+                std::cout       << "    It: " << i
                                 << ", current Energy: " << cp.energy() 
                                 << ", Gradient: " << g_old.norm() 
                                 << ", reflected Gradient: " << g_new.norm()
