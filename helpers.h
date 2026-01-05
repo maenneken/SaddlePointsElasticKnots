@@ -28,3 +28,4 @@ Eigen::SparseMatrix<double>  toEigenSparse(SuiteSparseMatrix& ssm);
 Eigen::SparseMatrix<double> computeHessian(ContactProblem& cp);
 std::vector<Eigen::Vector3d> reduce_knot_resolution(std::vector<Eigen::Vector3d> pts, size_t factor);
 HessianAndGradient removeTwist(Eigen::SparseMatrix<double, 0, int> H_sparse, Eigen::VectorXd g);
+HessianAndGradient removeTheta(Eigen::SparseMatrix<double, 0, int> H_sparse, Eigen::VectorXd g);

@@ -5,7 +5,7 @@
 
 #include "KnotVisualizer.h"
 
-Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0, int> H_sparse, int saddleType, double etol){
+Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0, int> H_sparse, int saddleType, double etol, bool flipAllNegEig){
 
     //nothing gets reflected
     if (saddleType <=0) return g;
@@ -20,24 +20,31 @@ Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0
 
     Eigen::VectorXd g_p = U.transpose() * g;
 
-    //Eigenvalues are sorted so 0 is always the smallest ignore the ones close to zero
+    //Eigenvalues are sorted so 0 is always the smallest 
     int e = 0;
+    if(flipAllNegEig){
+        while(u(e) < 0){ //it is a negative eigenvalue
+            g_p(e) *= -1.0;
+            ++e;
+            std::cout << u(e) <<" (neg), ";
+        }
+    }
+    //only goes in this loop if flipAllNegEig == false or we did not flip enough eig for the desired saddletype
     for (int i = 0; i < g_p.size() && e < saddleType; ++i){   
-        if( std::abs(u(i)) > etol){
+        if( std::abs(u(i)) > etol){//ignore the ones close to zero
             g_p(i) *= -1.0;
             ++e;
             std::cout << u(i) <<", ";
         }
             
     }
-    
 
     Eigen::VectorXd g_new = U * g_p;
 
     return g_new;
 }
 
-Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleType, bool useTwist, double etol){
+Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleType, bool useTwist, double etol, bool clampedEnds, bool flipAllNegEig){
 
     auto R = cp.getVars();
     auto g = cp.gradient();
@@ -47,16 +54,25 @@ Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleTyp
     if(!useTwist){
         
         HessianAndGradient Hg = removeTwist(H_sparse,g);
-        Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType, etol);
+        Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType, etol, flipAllNegEig);
         //std::cout << g.size() << " " << Hg.g.size() << std::endl;
         g_new = g;
         for (size_t i = 0; i < g_new_small.size();++i){
             g_new(i) = g_new_small(i);
         }
 
-    }
-    else {
-        g_new = reflectGradient(g, H_sparse,saddleType,etol);
+    } else if(!clampedEnds) { //when keeping theta constant the knot is free to rotate (look supplemental.pdf)
+        //remove it for correct reflection calk
+        HessianAndGradient Hg = removeTheta(H_sparse,g);
+        Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType,etol,flipAllNegEig);
+        g_new = g;
+        for (size_t i = 0; i < g_new_small.size();++i){
+            g_new(i) = g_new_small(i);
+        }
+        g_new(g_new.size()-1) = 0; //keep theta constant
+
+    } else {
+        g_new = reflectGradient(g, H_sparse,saddleType,etol, flipAllNegEig);
     }
 
     R = R - step * g_new;
@@ -67,26 +83,34 @@ Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleTyp
 
 }
 
-Eigen::VectorXd stepTowardsSaddleNewton(ContactProblem& cp, double step, int saddleType, bool useTwist, double etol){
+Eigen::VectorXd stepTowardsSaddleNewton(ContactProblem& cp, double step, int saddleType, bool useTwist, double etol, bool clampedEnds, bool flipAllNegEig){
 
     auto R = cp.getVars();
     auto g = cp.gradient();
     auto H_sparse = computeHessian(cp);
     Eigen::VectorXd g_new;
 
-    if(!useTwist){
-        
+    if(!useTwist){   
         HessianAndGradient Hg = removeTwist(H_sparse,g);
-        Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType,etol);
-        //std::cout << g.size() << " " << Hg.g.size() << std::endl;
+        Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType,etol,flipAllNegEig);
         g_new = g;
         for (size_t i = 0; i < g_new_small.size();++i){
             g_new(i) = g_new_small(i);
         }
 
+    } else if(!clampedEnds) { //when keeping theta constant the knot is free to rotate (look supplemental.pdf)
+        //remove it for correct reflection calk
+        HessianAndGradient Hg = removeTheta(H_sparse,g);
+        Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType,etol,flipAllNegEig);
+        g_new = g;
+        for (size_t i = 0; i < g_new_small.size();++i){
+            g_new(i) = g_new_small(i);
+        }
+        g_new(g_new.size()-1) = 0; //keep theta constant
+
     }
     else {
-        g_new = reflectGradient(g, H_sparse,saddleType, etol);
+        g_new = reflectGradient(g, H_sparse,saddleType, etol,flipAllNegEig);
     }
 
     Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> newtonSolver;
@@ -164,7 +188,8 @@ int main(int argc, char** argv) {
     //Set Visulizer 
     KnotVisualizer Viewer = KnotVisualizer();
     Viewer.setKnot(centerline,0.01 * rod_radius);
-
+    std::vector<Eigen::Vector3d> theta_point = {Eigen::Vector3d(0,0,0), Eigen::Vector3d(0,1000,0)};
+    Viewer.setTheta(theta_point, 0.01 * rod_radius);
     //Save first Knot Vars
     auto startKnot = cp.getVars();
 
@@ -175,14 +200,12 @@ int main(int argc, char** argv) {
     static bool running = false;
     static bool useNewton = true;
     static bool useTwist = true;
+    static bool clampedEnds = true;
+    static bool flipAllNegEig = false;
     static size_t i = 0;
     //set buttons
     Viewer.setUserCallback([&]() {
-        //todo add controls to load a Knot and set up a contactproblem with all options + reduceKnotResolution
-        //todo add flip all neg
-        //Todo add freely-rotating or clamped ends by keeping theta constant (look supplemental.pdf) (g(-1)=0 and remove it from the hessian when calk eigenvalues)
-        //visualize theta n+1
-        //visualize twist gradient and reflected
+        //todo add controls to load a Knot and set up a contactproblem with all options
         ImGui::Begin("Controls");
         ImGui::InputInt("Iterations", &iterations,1000,10000);
         ImGui::InputDouble("stepsize", &stepsize,(0.0001),(0.001),"%.7f");
@@ -190,6 +213,8 @@ int main(int argc, char** argv) {
         ImGui::InputDouble("Eigen Zero Tolerance", &eigen_tol, (0.01),(0.1),"%.3f"); 
         ImGui::Checkbox("Use Newton", &useNewton);
         ImGui::Checkbox("Use Twist", &useTwist);
+        ImGui::Checkbox("Clamped Ends", &clampedEnds);
+        ImGui::Checkbox("Reflect all negative Eigenvalues", &flipAllNegEig);
         if (ImGui::Button("Find Saddle")) {
             running = true;
             i = 0;                           
@@ -209,9 +234,9 @@ int main(int argc, char** argv) {
             Eigen::VectorXd g_new;
             Eigen::VectorXd g_old = cp.gradient();
             if(useNewton){
-                g_new = stepTowardsSaddleNewton(cp,stepsize,saddletype,useTwist,eigen_tol);
+                g_new = stepTowardsSaddleNewton(cp,stepsize,saddletype,useTwist,eigen_tol,clampedEnds, flipAllNegEig);
             } else {
-                g_new = stepTowardsSaddle(cp,stepsize,saddletype,useTwist,eigen_tol);
+                g_new = stepTowardsSaddle(cp,stepsize,saddletype,useTwist,eigen_tol,clampedEnds, flipAllNegEig);
             }
             
             if(i % 100 == 0){
@@ -221,6 +246,9 @@ int main(int argc, char** argv) {
                 Viewer.colorTwist(twist);
                 Viewer.showNodeGradient(DoFsToPos(g_old ,n_pts));
                 Viewer.showNodeGradientModified(DoFsToPos(g_new ,n_pts));
+                
+                auto last = cp.getVars().size()-1;
+                Viewer.updateTheta(cp.getVars()[last], g_old[last], g_new[last]);
                 //Viewer.showContactForce(DoFsToPos(cp.contactForces(),n_pts));
                 Viewer.frameTick();
                 std::cout       << "    It: " << i

@@ -36,8 +36,26 @@ void KnotVisualizer::setKnot(const std::vector<Eigen::Vector3d>& pts, const doub
     contact_force = curve->addNodeVectorQuantity("contct force", grad);
     contact_force->setEnabled(true);
     contact_force->setVectorLengthScale(1);
-
     
+}
+void KnotVisualizer::setTheta(const std::vector<Eigen::Vector3d>& pts, const double radius) {
+
+    std::vector<Eigen::Vector3d> grad_theta(pts.size(), Eigen::Vector3d::Zero());
+    Eigen::VectorXd value_theta = Eigen::VectorXd::Zero(pts.size());
+
+    theta = polyscope::registerPointCloud("theta", pts);
+    theta->setPointRadius(radius,true);
+
+    theta_value = theta->addScalarQuantity("theta value", value_theta);
+    theta_value->setEnabled(true);
+
+    theta_grad = theta->addVectorQuantity("theta gradient", grad_theta);
+    theta_grad->setEnabled(true);
+    theta_grad->setVectorLengthScale(100);
+
+    theta_grad_mod = theta->addVectorQuantity("theta gradient modified", grad_theta);
+    theta_grad_mod->setEnabled(true);
+    theta_grad_mod->setVectorLengthScale(100);
 }
 void KnotVisualizer::colorTwist(Eigen::VectorXd& twist){
     edge_twist->updateData(twist);
@@ -58,6 +76,15 @@ void KnotVisualizer::updateKnot(const std::vector<Eigen::Vector3d>& pts) {
     if (!curve) return;
     curve->updateNodePositions(pts);
 }
+
+void KnotVisualizer::updateTheta(double value, double grad, double grad_mod) {
+    if (!theta) return;
+    theta_value->updateData(std::vector<double>{value,0});
+    theta_value->setMapRange({-value,value});
+    theta_grad->updateData(std::vector<Eigen::Vector3d>{ Eigen::Vector3d(0,0,grad),Eigen::Vector3d(0,0,grad) });
+    theta_grad_mod->updateData(std::vector<Eigen::Vector3d>{ Eigen::Vector3d(0,0,grad_mod),Eigen::Vector3d(0,0,grad_mod) });
+}
+
 
 
 void KnotVisualizer::show() {

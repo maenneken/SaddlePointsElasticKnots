@@ -270,3 +270,30 @@ HessianAndGradient removeTwist(Eigen::SparseMatrix<double, 0, int> H_sparse, Eig
 
 }
 
+//removes the last entry -> new Shape n-1 x n-1
+HessianAndGradient removeTheta(Eigen::SparseMatrix<double, 0, int> H_sparse, Eigen::VectorXd g){
+    int n = g.size() -1;
+    Eigen::SparseMatrix<double, 0, int> H_small(n,n);
+
+    std::vector<Eigen::Triplet<double>> triplets;
+
+    for (int k = 0; k < H_sparse.outerSize(); ++k) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(H_sparse, k); it; ++it) {
+            if (it.row() < n && it.col() < n) {
+                triplets.emplace_back(it.row(), it.col(), it.value());
+            }
+        }
+    }
+
+    H_small.setFromTriplets(triplets.begin(), triplets.end());
+
+    Eigen::VectorXd g_small = g.head(n);
+
+    HessianAndGradient result;
+    result.H = H_small;
+    result.g = g_small;
+    return result;
+
+}
+//TODO make removeTheta and remove Twist not repeat code
+
