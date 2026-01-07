@@ -188,8 +188,9 @@ Eigen::MatrixXd toEigenDense(SuiteSparseMatrix& ssm){
 
     for(size_t k = 0; k< triplets.nnz(); ++k){
         auto &t = triplets.nz[k];
-        em(t.i,t.j) = t.v;
-        em(t.j,t.i) = t.v;
+        //we need to sum up, because there can be multiple entries for (i,j)
+        em(t.i,t.j) += t.v;
+        em(t.j,t.i) += t.v;
     }
     return em;
 }

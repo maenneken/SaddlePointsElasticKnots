@@ -12,11 +12,14 @@ Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0
     
     Eigen::MatrixXd H_dense = Eigen::MatrixXd(H_sparse);
 
+
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(H_dense);
     auto u = solver.eigenvalues();
     auto U = solver.eigenvectors();
 
-    
+    if (solver.info() != Eigen::Success) {
+        std::cerr << "Eigen decomposition failed\n";
+    }
 
     Eigen::VectorXd g_p = U.transpose() * g;
 
@@ -26,8 +29,9 @@ Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0
         while(u(e) < 0){ //it is a negative eigenvalue
             g_p(e) *= -1.0;
             ++e;
-            std::cout << u(e) <<" (neg), ";
+            //std::cout << u(e) <<" (neg),  ";
         }
+        std::cout << "|neg eigenvalues| = " << e << std::endl;
     }
     //only goes in this loop if flipAllNegEig == false or we did not flip enough eig for the desired saddletype
     for (int i = 0; i < g_p.size() && e < saddleType; ++i){   
@@ -49,10 +53,10 @@ Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleTyp
     auto R = cp.getVars();
     auto g = cp.gradient();
     auto H_sparse = computeHessian(cp);
+
     Eigen::VectorXd g_new;
 
     if(!useTwist){
-        
         HessianAndGradient Hg = removeTwist(H_sparse,g);
         Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType, etol, flipAllNegEig);
         //std::cout << g.size() << " " << Hg.g.size() << std::endl;
@@ -88,6 +92,11 @@ Eigen::VectorXd stepTowardsSaddleNewton(ContactProblem& cp, double step, int sad
     auto R = cp.getVars();
     auto g = cp.gradient();
     auto H_sparse = computeHessian(cp);
+
+    /*
+    SuiteSparseMatrix H = cp.hessian();
+    auto H_sparse = toEigenSparse(H);
+    */
     Eigen::VectorXd g_new;
 
     if(!useTwist){   
@@ -137,7 +146,7 @@ int main(int argc, char** argv) {
     double rod_radius = 0.2;
     int reductionFactor = 4;
     bool hasCollisions = true;
-    int contactStiffness = 1000;
+    int contactStiffness = 10000;
 
     // Parse command line arguments
     if (argc >= 2) {
