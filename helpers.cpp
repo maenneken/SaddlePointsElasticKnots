@@ -227,7 +227,6 @@ Eigen::SparseMatrix<double> enlargeMatrix(Eigen::SparseMatrix<double>& small, si
 }
 //use this instead of cp.hessian(). cp.hessian will fail, if contacts exists
 Eigen::SparseMatrix<double> computeHessian(ContactProblem& cp){
-
     bool projectionMask = true;    
     SuiteSparseMatrix result = cp.hessianSparsityPattern();
 

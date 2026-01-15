@@ -155,6 +155,13 @@ add_executable(test1
 
 add_executable(FindSaddle
     FindSaddlePoint.cpp
+    distanceEnergy.cpp
+    helpers.cpp
+    KnotVisualizer.cpp
+)
+
+add_executable(SmashKnot
+    SmashKnot.cpp
     helpers.cpp
     KnotVisualizer.cpp
 )
@@ -162,4 +169,5 @@ add_executable(FindSaddle
 
 target_link_libraries(test1 PRIVATE polyscope ElasticKnots)
 target_link_libraries(FindSaddle PRIVATE polyscope ElasticKnots)
+target_link_libraries(SmashKnot PRIVATE polyscope ElasticKnots)
 

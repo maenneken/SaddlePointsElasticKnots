@@ -1,9 +1,15 @@
-#include "helpers.h"
 #include <iostream>
 #include <vector>
 
-
+#include "helpers.h"
 #include "KnotVisualizer.h"
+#include "FindSaddlePoint.h"
+#include "distanceEnergy.h"
+
+
+double eigReflFactor = -1.0;
+int distEnergy_minSeperation = 3;
+double distEnergy_weight = 0.1;
 
 Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0, int> H_sparse, int saddleType, double etol, bool flipAllNegEig){
 
@@ -27,7 +33,7 @@ Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0
     int e = 0;
     if(flipAllNegEig){
         while(u(e) < 0){ //it is a negative eigenvalue
-            g_p(e) *= -1.0;
+            g_p(e) *= eigReflFactor;
             ++e;
             //std::cout << u(e) <<" (neg),  ";
         }
@@ -36,7 +42,7 @@ Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0
     //only goes in this loop if flipAllNegEig == false or we did not flip enough eig for the desired saddletype
     for (int i = 0; i < g_p.size() && e < saddleType; ++i){   
         if( std::abs(u(i)) > etol){//ignore the ones close to zero
-            g_p(i) *= -1.0;
+            g_p(i) *= eigReflFactor;
             ++e;
             std::cout << u(i) <<", ";
         }
@@ -51,8 +57,8 @@ Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0
 Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleType, bool useTwist, double etol, bool clampedEnds, bool flipAllNegEig){
 
     auto R = cp.getVars();
-    auto g = cp.gradient();
-    auto H_sparse = computeHessian(cp);
+    auto g = cp.gradient() + distanceGradient(R);
+    auto H_sparse = computeHessian(cp) + distanceHessian(R);
 
     Eigen::VectorXd g_new;
 
@@ -92,6 +98,12 @@ Eigen::VectorXd stepTowardsSaddleNewton(ContactProblem& cp, double step, int sad
     auto R = cp.getVars();
     auto g = cp.gradient();
     auto H_sparse = computeHessian(cp);
+
+    auto H_dist = distanceHessian(R,distEnergy_minSeperation);
+    auto g_dist = distanceGradient(R,distEnergy_minSeperation);
+
+    g+= distEnergy_weight * g_dist;
+    H_sparse += distEnergy_weight * H_dist;
 
     /*
     SuiteSparseMatrix H = cp.hessian();
@@ -214,12 +226,19 @@ int main(int argc, char** argv) {
     static size_t i = 0;
     //set buttons
     Viewer.setUserCallback([&]() {
+        //todo add new Energy based on different distance fkt to add information. ex: 1/(d²+1) or something with e^x
+        //todo add option for distance fkt where you can decide how many neighbors are included in the calkulation (direct neighbors might not be important to know where they are)
+        //todo add gradient and Hessian of the energy fkt
+        //Idea is to find negative Eigenvalues
         //todo add controls to load a Knot and set up a contactproblem with all options
         ImGui::Begin("Controls");
         ImGui::InputInt("Iterations", &iterations,1000,10000);
         ImGui::InputDouble("stepsize", &stepsize,(0.0001),(0.001),"%.7f");
         ImGui::InputInt("Saddle Type", &saddletype);
         ImGui::InputDouble("Eigen Zero Tolerance", &eigen_tol, (0.01),(0.1),"%.3f"); 
+        ImGui::InputDouble("Eigenvalue Reflection Factor", &eigReflFactor); 
+        ImGui::InputDouble("Distance Energy weight", &distEnergy_weight, (0.01),(0.1),"%.3f"); 
+        ImGui::InputInt("Distance Energy minseperation", &distEnergy_minSeperation);
         ImGui::Checkbox("Use Newton", &useNewton);
         ImGui::Checkbox("Use Twist", &useTwist);
         ImGui::Checkbox("Clamped Ends", &clampedEnds);
@@ -259,14 +278,19 @@ int main(int argc, char** argv) {
                 auto last = cp.getVars().size()-1;
                 Viewer.updateTheta(cp.getVars()[last], g_old[last], g_new[last]);
                 //Viewer.showContactForce(DoFsToPos(cp.contactForces(),n_pts));
+                cp.contactEnergy();
                 Viewer.frameTick();
-                std::cout       << "    It: " << i
+                auto Dofs = cp.getVars();
+                std::cout       << std::endl << std::endl
+                                << "    It: " << i
                                 << ", current Energy: " << cp.energy() 
                                 << ", Gradient: " << g_old.norm() 
                                 << ", reflected Gradient: " << g_new.norm()
                                 << ", difference: " << (g_old- g_new).norm()
                                 << ", Position: " << cp.getVars().norm()
                                 << ", Twist Min/Max: " << twist.minCoeff() << " / " <<twist.maxCoeff()
+                                << ", dist Energy: " << distEnergy_weight * distanceEnergy(Dofs,distEnergy_minSeperation)
+                                << ", dist gradient: " << distEnergy_weight * distanceGradient(Dofs,distEnergy_minSeperation).norm()
                                 << std::endl << std::endl;
 
             }
