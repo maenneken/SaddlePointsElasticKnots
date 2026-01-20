@@ -21,6 +21,8 @@ Eigen::VectorXd smashKnotStep(ContactProblem& cp, double step, double smashPlane
     
     for (int i = axis; i < R.size() * 0.75; i+=3){
         g_new(i) += std::exp(R(i) - smashPlane);
+        g_new(i) -= std::exp(-R(i) - smashPlane);
+
     }
 
     R = R - step * g_new;
@@ -43,6 +45,11 @@ Eigen::VectorXd smashKnotStepNewton(ContactProblem& cp, double step, double smas
 
     for (int i = axis; i < R.size() * 0.75; i+=3){
         g_new(i) += std::exp(R(i) - smashPlane);
+        g_new(i) -= std::exp(-R(i) - smashPlane);
+
+        H_sparse.coeffRef(i, i) +=
+            std::exp(R(i) - smashPlane)
+            + std::exp(-R(i) - smashPlane);
     }
 
     Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> newtonSolver;
@@ -71,7 +78,7 @@ Eigen::VectorXd smashKnotStepNewton(ContactProblem& cp, double step, double smas
 int main(int argc, char** argv) {
     std::string file = "../data/NoCollision/reduced0001.obj";
     double rod_radius = 0.2;
-    int reductionFactor = 4;
+    int reductionFactor = 1;
     bool hasCollisions = true;
     int contactStiffness = 10000;
 
@@ -129,13 +136,13 @@ int main(int argc, char** argv) {
     //Save first Knot Vars
     auto startKnot = cp.getVars();
 
-    static int iterations = 10000;
-    static double stepsize = 0.001;
+    static int iterations = 100000;
+    static double stepsize = 1;
     static double smashSpeed = 0.001;
     static bool running = false;
-    static bool useNewton = false;
+    static bool useNewton = true;
     static int smashAxis = 1;
-    double smashPlane = 20;
+    double smashPlane = 30;
 
     static size_t i = 0;
     //set buttons
@@ -172,7 +179,12 @@ int main(int argc, char** argv) {
             } else {
                 g_new = smashKnotStep(cp,stepsize, smashPlane, smashAxis);
             }
+
             smashPlane -= smashSpeed;
+            if(smashPlane <= 5){
+                smashPlane = 5;
+                smashSpeed = 0;
+            }
             if(i % 100 == 0){
                 auto pts = DoFsToPos(cp.getVars(),n_pts);
                 auto twist = DoFsToTwist(cp.getVars(),n_pts);
