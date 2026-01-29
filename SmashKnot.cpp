@@ -5,10 +5,14 @@
 
 #include "KnotVisualizer.h"
 
+#define RED     "\033[31m"
+#define GREEN   "\033[32m"
+#define YELLOW  "\033[33m"
+#define BLUE    "\033[34m"
+#define RESET   "\033[0m"
 
 
-
-Eigen::VectorXd smashKnotStep(ContactProblem& cp, double step, double smashPlane, int axis){
+Eigen::VectorXd smashKnotStep(ContactProblem& cp, double step, double smashPlane, int axis, double pressure){
 
     auto R = cp.getVars();
     auto g = cp.gradient();
@@ -20,8 +24,8 @@ Eigen::VectorXd smashKnotStep(ContactProblem& cp, double step, double smashPlane
     double k=1;
     
     for (int i = axis; i < R.size() * 0.75; i+=3){
-        g_new(i) += std::exp(R(i) - smashPlane);
-        g_new(i) -= std::exp(-R(i) - smashPlane);
+        g_new(i) += pressure * std::exp(R(i) - smashPlane);
+        g_new(i) -= pressure * std::exp(-R(i) - smashPlane);
 
     }
 
@@ -32,11 +36,34 @@ Eigen::VectorXd smashKnotStep(ContactProblem& cp, double step, double smashPlane
 
 }
 
-Eigen::VectorXd smashKnotStepNewton(ContactProblem& cp, double step, double smashPlane, int axis){
+Eigen::VectorXd smashKnotStepNewton(ContactProblem& cp, double step, double smashPlane, int axis, double pressure){
 
     auto R = cp.getVars();
     auto g = cp.gradient();
     auto H_sparse = computeHessian(cp);
+
+    //are there any neg eigenvalues
+    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldlt;
+    ldlt.compute(H_sparse);
+
+    if (ldlt.info() != Eigen::Success) {
+        throw std::runtime_error("LDLT failed");
+    }
+
+    auto D = ldlt.vectorD();
+
+    int negative = 0;
+    double tol = 1e-10;
+
+    for (int i = 0; i < D.size(); ++i) {
+        if (D[i] < -tol)
+            negative++;
+    }
+
+    if(negative > 0){
+        std::cout << RED << "|neg eigenvalues|: " << negative << RESET << std::endl;
+    }
+
 
     Eigen::VectorXd g_new;
 
@@ -44,12 +71,12 @@ Eigen::VectorXd smashKnotStepNewton(ContactProblem& cp, double step, double smas
 
 
     for (int i = axis; i < R.size() * 0.75; i+=3){
-        g_new(i) += std::exp(R(i) - smashPlane);
-        g_new(i) -= std::exp(-R(i) - smashPlane);
+        g_new(i) += pressure * std::exp(R(i) - smashPlane);
+        g_new(i) -= pressure * std::exp(-R(i) - smashPlane);
 
         H_sparse.coeffRef(i, i) +=
-            std::exp(R(i) - smashPlane)
-            + std::exp(-R(i) - smashPlane);
+            pressure * std::exp(R(i) - smashPlane)
+            + pressure*  std::exp(-R(i) - smashPlane);
     }
 
     Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> newtonSolver;
@@ -76,9 +103,9 @@ Eigen::VectorXd smashKnotStepNewton(ContactProblem& cp, double step, double smas
 
 
 int main(int argc, char** argv) {
-    std::string file = "../data/NoCollision/reduced0001.obj";
+    std::string file = "../data/L400-r0.2-UpTo9Crossings/4_1/0001.obj";
     double rod_radius = 0.2;
-    int reductionFactor = 1;
+    int reductionFactor = 4;
     bool hasCollisions = true;
     int contactStiffness = 10000;
 
@@ -99,7 +126,7 @@ int main(int argc, char** argv) {
     //Create material
     RodMaterial material(
         "ellipse",
-        2000,     // Young's modulus
+        20000,     // Young's modulus
         0.3,      // Poisson's ratio
         params
     );
@@ -143,6 +170,8 @@ int main(int argc, char** argv) {
     static bool useNewton = true;
     static int smashAxis = 1;
     double smashPlane = 30;
+    double smashPlane_mindist = 5;
+    double smashPressure = 1;
 
     static size_t i = 0;
     //set buttons
@@ -154,6 +183,8 @@ int main(int argc, char** argv) {
         ImGui::InputDouble("Smash speed", &smashSpeed,(0.0001),(0.001),"%.7f");
         ImGui::InputInt("smashing axis", &smashAxis);
         ImGui::InputDouble("Smashing Plane", &smashPlane);
+        ImGui::InputDouble("Min distance smashing plane can reach", &smashPlane_mindist);
+        ImGui::InputDouble("Smashing Pressure", &smashPressure);
         ImGui::Checkbox("Use Newton", &useNewton);
 
         if (ImGui::Button("Smash")) {
@@ -175,14 +206,14 @@ int main(int argc, char** argv) {
             Eigen::VectorXd g_new;
             Eigen::VectorXd g_old = cp.gradient();
             if(useNewton){
-                g_new = smashKnotStepNewton(cp,stepsize, smashPlane, smashAxis);
+                g_new = smashKnotStepNewton(cp,stepsize, smashPlane, smashAxis, smashPressure);
             } else {
-                g_new = smashKnotStep(cp,stepsize, smashPlane, smashAxis);
+                g_new = smashKnotStep(cp,stepsize, smashPlane, smashAxis, smashPressure);
             }
 
             smashPlane -= smashSpeed;
-            if(smashPlane <= 5){
-                smashPlane = 5;
+            if(smashPlane <= smashPlane_mindist){
+                smashPlane = smashPlane_mindist;
                 smashSpeed = 0;
             }
             if(i % 100 == 0){
@@ -197,14 +228,14 @@ int main(int argc, char** argv) {
                 Viewer.updateTheta(cp.getVars()[last], g_old[last], g_new[last]);
                 //Viewer.showContactForce(DoFsToPos(cp.contactForces(),n_pts));
                 Viewer.frameTick();
-                std::cout       << "    It: " << i
+                std::cout       << BLUE <<"    It: " << i << RESET
                                 << ", current Energy: " << cp.energy() 
                                 << ", Gradient: " << g_old.norm() 
-                                << ", reflected Gradient: " << g_new.norm()
+                                << GREEN << ", reflected Gradient: " << g_new.norm() << RESET
                                 << ", difference: " << (g_old- g_new).norm()
                                 << ", Position: " << cp.getVars().norm()
                                 << ", Twist Min/Max: " << twist.minCoeff() << " / " <<twist.maxCoeff()
-                                << ", ContactEnergy" << cp.contactEnergy()
+                                << ", ContactEnergy: " << cp.contactEnergy()
                                 << std::endl << std::endl;
 
             }

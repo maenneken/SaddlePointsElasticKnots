@@ -6,18 +6,22 @@
 #include "FindSaddlePoint.h"
 #include "distanceEnergy.h"
 
+#define RED     "\033[31m"
+#define GREEN   "\033[32m"
+#define YELLOW  "\033[33m"
+#define BLUE    "\033[34m"
+#define RESET   "\033[0m"
+
 
 double eigReflFactor = -1.0;
 int distEnergy_minSeperation = 3;
-double distEnergy_weight = 0.1;
+double distEnergy_weight = 0;
 
-Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0, int> H_sparse, int saddleType, double etol, bool flipAllNegEig){
+Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::MatrixXd H_dense, int saddleType, double etol, bool flipAllNegEig){
 
     //nothing gets reflected
     if (saddleType <=0) return g;
     
-    Eigen::MatrixXd H_dense = Eigen::MatrixXd(H_sparse);
-
 
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(H_dense);
     auto u = solver.eigenvalues();
@@ -44,7 +48,10 @@ Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0
         if( std::abs(u(i)) > etol){//ignore the ones close to zero
             g_p(i) *= eigReflFactor;
             ++e;
-            std::cout << u(i) <<", ";
+            if( u(i) < 0)
+                std::cout << RED <<u(i) <<", " << RESET;
+            else
+                std::cout << u(i) <<", ";
         }
             
     }
@@ -53,36 +60,91 @@ Eigen::VectorXd reflectGradient(Eigen::VectorXd g, Eigen::SparseMatrix<double, 0
 
     return g_new;
 }
+HessianAndGradient reflectGradientandHessian(Eigen::VectorXd g, Eigen::MatrixXd H_dense, int saddleType, double etol, bool flipAllNegEig){
+    //nothing gets reflected
+
+    if (saddleType <=0){
+        HessianAndGradient Hg;
+        Hg.g = g;
+        Hg.H = H_dense;
+        return Hg;
+    } 
+
+
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(H_dense);
+    auto u = solver.eigenvalues();
+    auto U = solver.eigenvectors();
+
+    if (solver.info() != Eigen::Success) {
+        std::cerr << "Eigen decomposition failed\n";
+    }
+
+    Eigen::VectorXd g_p = U.transpose() * g;
+
+    //Eigenvalues are sorted so 0 is always the smallest 
+    int e = 0;
+    if(flipAllNegEig){
+        while(u(e) < 0){ //it is a negative eigenvalue
+            g_p(e) *= eigReflFactor;
+            u(e) *= eigReflFactor;
+            ++e;
+            //std::cout << u(e) <<" (neg),  ";
+        }
+        std::cout << "|neg eigenvalues| = " << e << std::endl;
+    }
+    //only goes in this loop if flipAllNegEig == false or we did not flip enough eig for the desired saddletype
+    for (int i = 0; i < g_p.size() && e < saddleType; ++i){   
+        if( std::abs(u(i)) > etol){//ignore the ones close to zero
+            g_p(i) *= eigReflFactor;
+            ++e;
+            if( u(i) < 0)
+                std::cout << RED <<u(i) <<", " << RESET;
+            else
+                std::cout << u(i) <<", ";
+        }
+            
+    }
+    auto H_new =  U * u.asDiagonal() * U.transpose();
+    auto g_new = U * g_p;
+    HessianAndGradient Hg;
+    Hg.H = H_new;
+    Hg.g = g_new;
+    return Hg;
+}
 
 Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleType, bool useTwist, double etol, bool clampedEnds, bool flipAllNegEig){
 
     auto R = cp.getVars();
-    auto g = cp.gradient() + distanceGradient(R);
-    auto H_sparse = computeHessian(cp) + distanceHessian(R);
+    auto g = cp.gradient();
+    auto H_sparse = computeHessian(cp);
 
+    auto H_dist = distanceHessian(R,distEnergy_minSeperation);
+    auto g_dist = distanceGradient(R,distEnergy_minSeperation);
+
+    g += distEnergy_weight * g_dist;
+    H_sparse += distEnergy_weight * H_dist;
+
+
+    Eigen::MatrixXd H_dense = Eigen::MatrixXd(H_sparse);
     Eigen::VectorXd g_new;
 
     if(!useTwist){
-        HessianAndGradient Hg = removeTwist(H_sparse,g);
+        HessianAndGradient Hg = makeSmaller(H_dense, g, g.size() * 0.75);
         Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType, etol, flipAllNegEig);
         //std::cout << g.size() << " " << Hg.g.size() << std::endl;
         g_new = g;
-        for (size_t i = 0; i < g_new_small.size();++i){
-            g_new(i) = g_new_small(i);
-        }
+        g_new.head(g.size() * 0.75) = g_new_small;
 
     } else if(!clampedEnds) { //when keeping theta constant the knot is free to rotate (look supplemental.pdf)
         //remove it for correct reflection calk
-        HessianAndGradient Hg = removeTheta(H_sparse,g);
+        HessianAndGradient Hg = makeSmaller(H_dense, g, g.size() -1);
         Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType,etol,flipAllNegEig);
-        g_new = g;
-        for (size_t i = 0; i < g_new_small.size();++i){
-            g_new(i) = g_new_small(i);
-        }
-        g_new(g_new.size()-1) = 0; //keep theta constant
+        
+        g_new.head(g.size()-1) = g_new_small;
+        g_new(g.size()-1) = 0; //keep theta constant
 
     } else {
-        g_new = reflectGradient(g, H_sparse,saddleType,etol, flipAllNegEig);
+        g_new = reflectGradient(g, H_dense,saddleType,etol, flipAllNegEig);
     }
 
     R = R - step * g_new;
@@ -102,40 +164,36 @@ Eigen::VectorXd stepTowardsSaddleNewton(ContactProblem& cp, double step, int sad
     auto H_dist = distanceHessian(R,distEnergy_minSeperation);
     auto g_dist = distanceGradient(R,distEnergy_minSeperation);
 
-    g+= distEnergy_weight * g_dist;
+    g += distEnergy_weight * g_dist;
     H_sparse += distEnergy_weight * H_dist;
 
-    /*
-    SuiteSparseMatrix H = cp.hessian();
-    auto H_sparse = toEigenSparse(H);
-    */
+    Eigen::MatrixXd H_dense = Eigen::MatrixXd(H_sparse);
     Eigen::VectorXd g_new;
 
     if(!useTwist){   
-        HessianAndGradient Hg = removeTwist(H_sparse,g);
-        Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType,etol,flipAllNegEig);
-        g_new = g;
-        for (size_t i = 0; i < g_new_small.size();++i){
-            g_new(i) = g_new_small(i);
-        }
+        HessianAndGradient Hg = makeSmaller(H_dense, g, g.size() * 0.75);
+        HessianAndGradient Hg_new_small = reflectGradientandHessian(Hg.g, Hg.H,saddleType,etol,flipAllNegEig);
+        HessianAndGradient Hg_new = insertInBiggerHg(H_dense,g,Hg_new_small.H,Hg_new_small.g);
+        g_new = Hg_new.g;
+        H_dense = Hg_new.H;
 
     } else if(!clampedEnds) { //when keeping theta constant the knot is free to rotate (look supplemental.pdf)
         //remove it for correct reflection calk
-        HessianAndGradient Hg = removeTheta(H_sparse,g);
-        Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType,etol,flipAllNegEig);
-        g_new = g;
-        for (size_t i = 0; i < g_new_small.size();++i){
-            g_new(i) = g_new_small(i);
-        }
-        g_new(g_new.size()-1) = 0; //keep theta constant
+        HessianAndGradient Hg = makeSmaller(H_dense, g, g.size() -1);
+        HessianAndGradient Hg_new_small = reflectGradientandHessian(Hg.g, Hg.H,saddleType,etol,flipAllNegEig);
+        HessianAndGradient Hg_new = insertInBiggerHg(H_dense,g,Hg_new_small.H,Hg_new_small.g);
+        g_new = Hg_new.g;
+        H_dense = Hg_new.H;
 
     }
     else {
-        g_new = reflectGradient(g, H_sparse,saddleType, etol,flipAllNegEig);
+        HessianAndGradient Hg = reflectGradientandHessian(g, H_dense,saddleType, etol,flipAllNegEig);
+        g_new = Hg.g;
+        H_dense = Hg.H;
     }
 
-    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> newtonSolver;
-    newtonSolver.compute(H_sparse);
+    Eigen::LDLT<Eigen::MatrixXd> newtonSolver;
+    newtonSolver.compute(H_dense);
 
     if (newtonSolver.info() != Eigen::Success) {
         throw std::runtime_error("Factorization failed");
@@ -231,6 +289,7 @@ int main(int argc, char** argv) {
         //todo add gradient and Hessian of the energy fkt
         //Idea is to find negative Eigenvalues
         //todo add controls to load a Knot and set up a contactproblem with all options
+        //todo instead of converting to sparse and dense and back use dense.
         ImGui::Begin("Controls");
         ImGui::InputInt("Iterations", &iterations,1000,10000);
         ImGui::InputDouble("stepsize", &stepsize,(0.0001),(0.001),"%.7f");
@@ -282,10 +341,10 @@ int main(int argc, char** argv) {
                 Viewer.frameTick();
                 auto Dofs = cp.getVars();
                 std::cout       << std::endl << std::endl
-                                << "    It: " << i
+                                << BLUE << "It: " << i << RESET
                                 << ", current Energy: " << cp.energy() 
                                 << ", Gradient: " << g_old.norm() 
-                                << ", reflected Gradient: " << g_new.norm()
+                                << GREEN << ", reflected Gradient: " << g_new.norm() << RESET
                                 << ", difference: " << (g_old- g_new).norm()
                                 << ", Position: " << cp.getVars().norm()
                                 << ", Twist Min/Max: " << twist.minCoeff() << " / " <<twist.maxCoeff()

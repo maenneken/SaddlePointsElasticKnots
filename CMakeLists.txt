@@ -166,8 +166,16 @@ add_executable(SmashKnot
     KnotVisualizer.cpp
 )
 
+add_executable(FindPath
+    FindPath.cpp
+    rrt.cpp
+    helpers.cpp
+    KnotVisualizer.cpp
+)
+
 
 target_link_libraries(test1 PRIVATE polyscope ElasticKnots)
 target_link_libraries(FindSaddle PRIVATE polyscope ElasticKnots)
 target_link_libraries(SmashKnot PRIVATE polyscope ElasticKnots)
+target_link_libraries(FindPath PRIVATE polyscope ElasticKnots)
 

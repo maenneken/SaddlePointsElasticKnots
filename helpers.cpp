@@ -244,56 +244,24 @@ Eigen::SparseMatrix<double> computeHessian(ContactProblem& cp){
     return H_rod + resized_IPCHessianEigen;
 }
 
-//remove all twist entrys -> new Shape n_pts x n_pts, n_pts
-HessianAndGradient removeTwist(Eigen::SparseMatrix<double, 0, int> H_sparse, Eigen::VectorXd g){
-    int n = g.size() * 0.75;
-    Eigen::SparseMatrix<double, 0, int> H_small(n,n);
+HessianAndGradient makeSmaller(Eigen::MatrixXd &H , Eigen::VectorXd& g, size_t k){
+    Eigen::MatrixXd H_small = H.topLeftCorner(k,k);
+    Eigen::VectorXd g_small = g.head(k);
 
-    std::vector<Eigen::Triplet<double>> triplets;
-
-    for (int k = 0; k < H_sparse.outerSize(); ++k) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(H_sparse, k); it; ++it) {
-            if (it.row() < n && it.col() < n) {
-                triplets.emplace_back(it.row(), it.col(), it.value());
-            }
-        }
-    }
-
-    H_small.setFromTriplets(triplets.begin(), triplets.end());
-
-    Eigen::VectorXd g_small = g.head(n);
-
-    HessianAndGradient result;
-    result.H = H_small;
-    result.g = g_small;
-    return result;
-
+    return HessianAndGradient(H_small, g_small);
 }
 
-//removes the last entry -> new Shape n-1 x n-1
-HessianAndGradient removeTheta(Eigen::SparseMatrix<double, 0, int> H_sparse, Eigen::VectorXd g){
-    int n = g.size() -1;
-    Eigen::SparseMatrix<double, 0, int> H_small(n,n);
 
-    std::vector<Eigen::Triplet<double>> triplets;
-
-    for (int k = 0; k < H_sparse.outerSize(); ++k) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(H_sparse, k); it; ++it) {
-            if (it.row() < n && it.col() < n) {
-                triplets.emplace_back(it.row(), it.col(), it.value());
-            }
-        }
-    }
-
-    H_small.setFromTriplets(triplets.begin(), triplets.end());
-
-    Eigen::VectorXd g_small = g.head(n);
-
-    HessianAndGradient result;
-    result.H = H_small;
-    result.g = g_small;
-    return result;
-
-}
 //TODO make removeTheta and remove Twist not repeat code
+HessianAndGradient insertInBiggerHg(Eigen::MatrixXd & H_big, Eigen::VectorXd& g_big, Eigen::MatrixXd & H_small, Eigen::VectorXd& g_small){
+
+    size_t k = g_small.size();
+
+    H_big.topLeftCorner(k, k) = H_small;
+
+    g_big.head(k) = g_small;
+
+    return HessianAndGradient(H_big, g_big);
+}
+
 

@@ -15,8 +15,15 @@
 #include "3rdparty/ElasticKnots/ContactProblem.hh"
 
 struct HessianAndGradient {
-    Eigen::SparseMatrix<double, 0, int> H;
+    Eigen::MatrixXd H;
     Eigen::VectorXd g;
+
+    HessianAndGradient() = default;
+
+    HessianAndGradient(Eigen::MatrixXd& H_, Eigen::VectorXd& g_){
+    H = H_;
+    g = g_;
+}
 };
 
 PeriodicRod define_periodic_rod(std::vector<Eigen::Vector3d> pts, RodMaterial material);
@@ -27,5 +34,5 @@ Eigen::MatrixXd toEigenDense(SuiteSparseMatrix& ssm);
 Eigen::SparseMatrix<double>  toEigenSparse(SuiteSparseMatrix& ssm);
 Eigen::SparseMatrix<double> computeHessian(ContactProblem& cp);
 std::vector<Eigen::Vector3d> reduce_knot_resolution(std::vector<Eigen::Vector3d> pts, size_t factor);
-HessianAndGradient removeTwist(Eigen::SparseMatrix<double, 0, int> H_sparse, Eigen::VectorXd g);
-HessianAndGradient removeTheta(Eigen::SparseMatrix<double, 0, int> H_sparse, Eigen::VectorXd g);
+HessianAndGradient makeSmaller(Eigen::MatrixXd &H , Eigen::VectorXd& g, size_t k);
+HessianAndGradient insertInBiggerHg(Eigen::MatrixXd & H_big, Eigen::VectorXd& g_big, Eigen::MatrixXd & H_small, Eigen::VectorXd& g_small);
