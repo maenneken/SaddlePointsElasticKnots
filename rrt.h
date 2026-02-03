@@ -12,7 +12,7 @@ struct rrt_vertex{
 class RRT{
     public:
         RRT(const Eigen::VectorXd& start, const Eigen::VectorXd& goal, double maxEnergy = 20, double stepLength = 2, double goalBias = 0.1, double steerStep = 0.1);
-        Eigen::VectorXd sampleRandConfig(const Eigen::VectorXd& goal, const std::vector<rrt_vertex>& tree);
+        Eigen::VectorXd sampleRandConfig(ContactProblem& cp, const Eigen::VectorXd& goal, const std::vector<rrt_vertex>& tree);
         size_t nearestVertex(const Eigen::VectorXd& config, const std::vector<rrt_vertex>& tree);
         Eigen::VectorXd steerTowardsConfig(ContactProblem& cp, Eigen::VectorXd& near, Eigen::VectorXd& rand);
         std::vector<Eigen::VectorXd> createPath(Eigen::VectorXd connection);

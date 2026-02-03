@@ -59,22 +59,53 @@ RRT::RRT(const Eigen::VectorXd& start,
 }
 //sampels a rand configuration around existing knots in the tree or goal
 //try sampling a random position for one random point in the vertex and have the neighboring vertecies go the same direction but less and less to simulate bending 
-Eigen::VectorXd RRT::sampleRandConfig(const Eigen::VectorXd& goal, const std::vector<rrt_vertex>& tree){
-    // goal bias
-    if (uniform01() < goal_bias)
-        return goal;
+Eigen::VectorXd RRT::sampleRandConfig(ContactProblem& cp, const Eigen::VectorXd& goal, const std::vector<rrt_vertex>& tree){
 
-    // pick random node from the tree
-    size_t idx = static_cast<size_t>(uniform01() * tree.size());
-    const Eigen::VectorXd& center = tree[idx].config;
+    size_t n_vertices = 0.25*n_dofs;
+    size_t idx_tree; //id of Knot in the tree
+    size_t idx_knot = static_cast<size_t>(uniform01() * 0.25*n_dofs); //random Point in Knot
+    //const Eigen::Vector3d center(tree[idx_tree].config[3*idx_knot], tree[idx_tree].config[3*idx_knot +1], tree[idx_tree].config[3*idx_knot+2]);
 
-    double sigma = step_length;  // key parameter
-    Eigen::VectorXd rand_config = center + gaussianVector(n_dofs, sigma);
 
-    // keep twist fixed
-    rand_config.tail(static_cast<int>(0.75 * n_dofs)).setZero();
 
-    return rand_config;
+   
+
+    //pick knot nearest to goal
+    if(uniform01() < goal_bias){
+        idx_tree = nearestVertex(goal,tree);
+    } 
+    else {
+        idx_tree = static_cast<size_t>(uniform01() * tree.size()); //random Knot
+    }
+
+    Eigen::VectorXd randKnot = tree[idx_tree].config;
+
+    Eigen::Vector3d randDirection;
+
+    //goalBias
+    if (uniform01() < goal_bias){
+        randKnot.segment<3>(3*idx_knot) = goal.segment<3>(3*idx_knot);
+    } 
+    else {
+        randDirection = Eigen::Vector3d::Random().normalized()*step_length;
+        randKnot.segment<3>(3*idx_knot) += randDirection;
+    }
+    
+
+
+    //relax the knot, but it will break since there solver is not relibale at contacts
+    /*
+    cp.setVars(randKnot);
+    auto optimizerOptions = NewtonOptimizerOptions();
+    optimizerOptions.niter = 10;
+    optimizerOptions.gradTol = 1e-8;
+    Eigen::VectorXd externalForces;
+    double hessianShift = 1e-4;
+    std::vector<size_t> fixedVars = {3*idx_knot,3*idx_knot +1, 3*idx_knot + 2};
+    compute_equilibrium(cp.m_rods,cp.m_options, optimizerOptions,fixedVars,externalForces, cp.m_softConstraints,nullptr,hessianShift);
+    randKnot = cp.getVars();
+    */
+    return randKnot;
 }
 size_t RRT::nearestVertex(const Eigen::VectorXd& config, const std::vector<rrt_vertex>& tree){
     size_t nearest = 0;
@@ -98,13 +129,16 @@ Eigen::VectorXd RRT::steerTowardsConfig(ContactProblem& cp, Eigen::VectorXd& nea
     direction.normalize();
     Eigen::VectorXd current = near;
     cp.setVars(current);
-    while(cp.energy() <= max_energy && (current - near).norm() <= step_length && ((current - rand).norm() >= 1e-8)){
+    //go tillnot possible anymore; removed && (current - near).norm() <= step_length
+    while(cp.contactEnergy() <= max_energy  && ((current - rand).norm() >= steer_step)){
         current += steer_step * direction;
         cp.setVars(current);
     }
     if((current - near).norm() < 1e-8){
         return near;
     }
+    //we went one to far
+    current -= steer_step * direction;
     return current;
 }
 std::vector<Eigen::VectorXd> RRT::createPath(Eigen::VectorXd connection){
@@ -135,7 +169,7 @@ std::vector<Eigen::VectorXd> RRT::createPath(Eigen::VectorXd connection){
     return full_path;
 
 }
-
+//TODO add delete leafs after 100 tries expanding...
 std::vector<Eigen::VectorXd> RRT::findPath(ContactProblem& cp, size_t iterations, KnotVisualizer& Viewer){
     std::vector<Eigen::VectorXd> path;
     std::array<std::vector<rrt_vertex>*, 2> trees = { &start_tree, &goal_tree };
@@ -147,7 +181,7 @@ std::vector<Eigen::VectorXd> RRT::findPath(ContactProblem& cp, size_t iterations
             Eigen::VectorXd goal = (*trees[1 - t])[0].config;
             
             //sample rand config
-            Eigen::VectorXd rand_config = sampleRandConfig(goal,*trees[t]);
+            Eigen::VectorXd rand_config = sampleRandConfig(cp, goal,*trees[t]);
 
             //find the nearest vertex to the tree
             size_t nearest_id = nearestVertex(rand_config, *trees[t]);
@@ -178,25 +212,25 @@ std::vector<Eigen::VectorXd> RRT::findPath(ContactProblem& cp, size_t iterations
             nearest = other_config;
             
             //we can connect both trees
-            if((other_config - new_config).norm() < 1e-8){
+            if((other_config - new_config).norm() < 1e-2){
                 return createPath(new_config);
             }
         }    
         
         
-        if(i % 100 == 0){
+        if(i % 10 == 0){
             std::cout << std::endl;
             std::cout << "Iteration: " << i << "; Number of Vertcies in start_tree: " << start_tree.size() << "; Number of Vertcies in goal_tree: " << goal_tree.size() << std::endl;
             auto nearest_goal = nearestVertex(goal_tree[0].config, start_tree);
             cp.setVars(start_tree[nearest_goal].config);
-            std::cout << "nearest Vertex to goal is: " << nearest_goal << " with distance " << (start_tree[nearest_goal].config - goal_tree[0].config).norm() << " and Energy: " <<cp.energy() << std::endl;
+            std::cout << "nearest Vertex to goal is: " << nearest_goal << " with distance " << (start_tree[nearest_goal].config - goal_tree[0].config).norm() << " and Energy: " <<cp.energy()<<" Contact Energy: "<< cp.contactEnergy() << std::endl;
             auto nearest_start = nearestVertex(start_tree[0].config, goal_tree);
             std::cout << "nearest Vertex to start is: " << nearest_start << " with distance " << (goal_tree[nearest_start].config - start_tree[0].config).norm() <<  std::endl;
 
             auto pts = DoFsToPos(cp.getVars(),0.25*n_dofs);
-            Viewer.updateKnot(pts);
-            Viewer.frameTick();
-        }   
+            Viewer.updateKnot(pts); 
+        } 
+        Viewer.frameTick();  
         
     }
     return path;

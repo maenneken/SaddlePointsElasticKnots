@@ -1,11 +1,81 @@
 #include "rrt.h"
+#include <algorithm>
+#include <thread>   // for std::this_thread::sleep_for
+#include <chrono>   // for std::chrono::milliseconds
 
+
+
+#define RED     "\033[31m"
+#define GREEN   "\033[32m"
+#define YELLOW  "\033[33m"
+#define BLUE    "\033[34m"
+#define RESET   "\033[0m"
+
+
+
+// rotate right by 1
+inline void rotateRight(std::vector<Eigen::Vector3d>& v) {
+    if (v.size() < 2) return;
+    std::rotate(v.rbegin(), v.rbegin() + 1, v.rend());
+}
+
+// L2 distance between two knots
+double knotDistance(const std::vector<Eigen::Vector3d>& a,
+                    const std::vector<Eigen::Vector3d>& b)
+{
+    double sum = 0.0;
+    for (size_t i = 0; i < a.size(); ++i)
+        sum += (a[i] - b[i]).squaredNorm();
+    return std::sqrt(sum);
+}
+
+// rotates goal knot to minimal distance to start
+std::vector<Eigen::Vector3d>
+rotateKnotTillMinDist(const std::vector<Eigen::Vector3d>& start,
+                      const std::vector<Eigen::Vector3d>& goal)
+{
+    assert(start.size() == goal.size());
+
+    double minDist = knotDistance(start, goal);
+    std::vector<Eigen::Vector3d> goal_minDist = goal;
+    std::vector<Eigen::Vector3d> v_tmp = goal;
+
+    for (size_t i = 0; i < start.size(); ++i) {
+        rotateRight(v_tmp);
+
+        double dist = knotDistance(start, v_tmp);
+        if (dist < minDist) {
+            minDist = dist;
+            goal_minDist = v_tmp;
+        }
+    }
+
+    return goal_minDist;
+}
+void showPath(std::vector<Eigen::VectorXd>& path, ContactProblem& cp, KnotVisualizer& Viewer){
+    for(size_t k = 0; k< path.size(); ++k ){
+        cp.setVars(path[k]);
+        auto pts = DoFsToPos(path[k], 0.25 *path[k].size());
+        Viewer.updateKnot(pts);
+        Viewer.frameTick();
+        std::cout               << std::endl << std::endl
+                                << BLUE << "Step: " << k << RESET
+                                << ", current Energy: " << cp.energy() 
+                                << ", Gradient: " << cp.gradient().norm() 
+                                << ", Position: " << cp.getVars().norm()
+                                << std::endl << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+}
 
 int main(int argc, char** argv) {
-    std::string start_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0033.obj";
-    std::string goal_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0001.obj";
+    //std::string start_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0001.obj";
+    //std::string goal_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0033.obj";
+    std::string start_file = "../data/NoCollision/reduced0001.obj";
+    std::string goal_file = "../data/NoCollision/reduced0033.obj";
     double rod_radius = 0.2;
-    int reductionFactor = 1;
+    int reductionFactor = 4;
     bool hasCollisions = true;
     int contactStiffness = 10000;
 
@@ -37,6 +107,9 @@ int main(int argc, char** argv) {
     std::vector<Eigen::Vector3d> start_centerline = reduce_knot_resolution(read_nodes_from_file(start_file), reductionFactor);
     std::vector<Eigen::Vector3d> goal_centerline = reduce_knot_resolution(read_nodes_from_file(goal_file), reductionFactor);
 
+    //rotate goal to minimize distance
+    goal_centerline = rotateKnotTillMinDist(start_centerline, goal_centerline);
+
     int n_pts = start_centerline.size();  
 
     PeriodicRod start_pr = define_periodic_rod(start_centerline,material);
@@ -44,6 +117,9 @@ int main(int argc, char** argv) {
 
     Eigen::VectorXd start_dofs = start_pr.getDoFs();
     Eigen::VectorXd goal_dofs = goal_pr.getDoFs();
+
+
+
 
     if(start_dofs.size() != goal_dofs.size()){
         throw std::runtime_error("start and goal are not the same size");
@@ -82,18 +158,19 @@ int main(int argc, char** argv) {
     auto startKnot = cp.getVars();
 
     static int iterations = 1000;
-    static double maxEnergy = 1000;
-    static double stepsize = 0.01;
-    static double steplength = 0.1;
-    static double goalBias = 0.1;
+    static double maxEnergy = 10;
+    static double stepsize = 0.05;
+    static double steplength = 5;
+    static double goalBias = 0.2;
 
 
    
     bool running = false;
 
+    for (size_t i=0; i < n_pts; ++i ){
+        std::cout << start_dofs.segment<3>(3*i) << std::endl <<std::endl;
 
-    //TODO drehe indexe von goal knot so, dass der abstand zwischen start und goal minmal ist. 0-> muss nicht auf 0 zeigen
-
+    }
     //set buttons
     Viewer.setUserCallback([&]() {
         //todo add controls to load a Knot and set up a contactproblem with all options
@@ -120,10 +197,10 @@ int main(int argc, char** argv) {
         if(running){
             RRT rrt(start_dofs,goal_dofs, maxEnergy, steplength, goalBias, stepsize);
 
-            auto path = rrt.findPath(cp,iterations,Viewer);
+            std::vector<Eigen::VectorXd> path = rrt.findPath(cp,iterations,Viewer);
 
             std::cout << "Found a path of size: " << path.size() << std::endl; 
-
+            showPath(path,cp,Viewer);
             running=false;
         }
     }
