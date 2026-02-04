@@ -230,6 +230,8 @@ std::vector<Eigen::VectorXd> RRT::createPath(Eigen::VectorXd connection){
         start_path.emplace_back(start_tree[current].config);
         current = start_tree[current].parent;
     }
+    //add start
+    start_path.emplace_back(start_tree[0].config);
     //the path is backwards
     std::reverse(start_path.begin(), start_path.end());
     
@@ -240,6 +242,7 @@ std::vector<Eigen::VectorXd> RRT::createPath(Eigen::VectorXd connection){
         goal_path.emplace_back(goal_tree[current].config);
         current = goal_tree[current].parent;
     }
+    goal_path.emplace_back(goal_tree[0].config);
     
     //remove duplicate
     if(!goal_path.empty()) goal_path.erase(goal_path.begin());
