@@ -158,9 +158,10 @@ int main(int argc, char** argv) {
     auto startKnot = cp.getVars();
 
     static int iterations = 1000;
+    static int pruningInterval = 100;
     static double maxEnergy = 10;
     static double stepsize = 0.05;
-    static double steplength = 5;
+    static double steplength = 1;
     static double goalBias = 0.2;
 
 
@@ -176,6 +177,7 @@ int main(int argc, char** argv) {
         //todo add controls to load a Knot and set up a contactproblem with all options
         ImGui::Begin("Controls");
         ImGui::InputInt("Iterations", &iterations,1000,10000);
+        ImGui::InputInt("Pruning Interval", &pruningInterval,1000,10000);
         ImGui::InputDouble("Max Energy", &maxEnergy,(0.001),(1),"%.2f");
         ImGui::InputDouble("stepsize", &stepsize,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("stepLength", &steplength,(0.001),(0.01),"%.4f");
@@ -195,7 +197,7 @@ int main(int argc, char** argv) {
     while (!polyscope::windowRequestsClose()) { 
         Viewer.frameTick();
         if(running){
-            RRT rrt(start_dofs,goal_dofs, maxEnergy, steplength, goalBias, stepsize);
+            RRT rrt(start_dofs, goal_dofs, maxEnergy, steplength, goalBias, stepsize, pruningInterval);
 
             std::vector<Eigen::VectorXd> path = rrt.findPath(cp,iterations,Viewer);
 

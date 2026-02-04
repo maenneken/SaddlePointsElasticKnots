@@ -168,6 +168,7 @@ add_executable(SmashKnot
 
 add_executable(FindPath
     FindPath.cpp
+    projectToConstraintSpace.cpp
     rrt.cpp
     helpers.cpp
     KnotVisualizer.cpp
