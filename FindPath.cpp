@@ -160,18 +160,15 @@ int main(int argc, char** argv) {
     static int iterations = 1000;
     static int pruningInterval = 100;
     static double maxEnergy = 10;
-    static double stepsize = 0.05;
-    static double steplength = 1;
+    static double stepsize = 0.1;
+    static double steplength = 10;
     static double goalBias = 0.2;
+    static bool oneRandDirection = false;
 
 
    
     bool running = false;
 
-    for (size_t i=0; i < n_pts; ++i ){
-        std::cout << start_dofs.segment<3>(3*i) << std::endl <<std::endl;
-
-    }
     //set buttons
     Viewer.setUserCallback([&]() {
         //todo add controls to load a Knot and set up a contactproblem with all options
@@ -182,6 +179,8 @@ int main(int argc, char** argv) {
         ImGui::InputDouble("stepsize", &stepsize,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("stepLength", &steplength,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("goal Bias", &goalBias,(0.001),(0.01),"%.4f");
+        ImGui::Checkbox("oneRandDirection", &oneRandDirection);
+    
         
 
 
@@ -197,9 +196,10 @@ int main(int argc, char** argv) {
     while (!polyscope::windowRequestsClose()) { 
         Viewer.frameTick();
         if(running){
-            RRT rrt(start_dofs, goal_dofs, maxEnergy, steplength, goalBias, stepsize, pruningInterval);
+            RRT rrt(start_dofs, goal_dofs, maxEnergy, steplength, goalBias, stepsize, pruningInterval,oneRandDirection);
 
-            std::vector<Eigen::VectorXd> path = rrt.findPath(cp,iterations,Viewer);
+            std::vector<Eigen::VectorXd> path = rrt.findConstrainedPath(cp,iterations,Viewer);
+            //std::vector<Eigen::VectorXd> path = rrt.findPath(cp,iterations,Viewer);
 
             std::cout << "Found a path of size: " << path.size() << std::endl; 
             showPath(path,cp,Viewer);

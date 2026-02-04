@@ -38,7 +38,8 @@ RRT::RRT(const Eigen::VectorXd& start,
          double stepLength,
          double goalBias,
          double steerStep,
-         size_t pruningInterval){
+         size_t pruningInterval,
+         bool oneRandDirection){
     assert(start.size() == goal.size() && "start and goal must have same dimension");
     assert(maxEnergy > 0 && "maxEnergy must be positive");
     assert(stepLength > 0 && "stepLength must be positive");
@@ -54,6 +55,7 @@ RRT::RRT(const Eigen::VectorXd& start,
     steer_step = steerStep;
     goal_bias = goalBias;
     pruning_interval = pruningInterval;
+    one_rand_direction_3d = oneRandDirection;
 
     min_val = std::min(start.minCoeff(), goal.minCoeff()) - 10;
     max_val = std::max(start.maxCoeff(), goal.maxCoeff()) + 10;
@@ -89,7 +91,7 @@ Eigen::VectorXd RRT::sampleRandConfig(ContactProblem& cp, const Eigen::VectorXd&
 
     size_t n_vertices = 0.25*n_dofs;
     size_t idx_tree; //id of Knot in the tree
-    size_t idx_knot = static_cast<size_t>(uniform01() * 0.25*n_dofs); //random Point in Knot
+    size_t idx_knot = static_cast<size_t>(uniform01() * n_vertices); //random Point in Knot
     //const Eigen::Vector3d center(tree[idx_tree].config[3*idx_knot], tree[idx_tree].config[3*idx_knot +1], tree[idx_tree].config[3*idx_knot+2]);
 
 
@@ -121,39 +123,38 @@ Eigen::VectorXd RRT::sampleRandConfig(ContactProblem& cp, const Eigen::VectorXd&
 Eigen::VectorXd RRT::sampleRandDirection(const Eigen::VectorXd& current_config, const Eigen::VectorXd& goal){
     
     size_t n_pts = 0.75*n_dofs;
-
-    //move all vertecies in random directions
-    /*
-    Eigen::VectorXd randDirection;
-
-    Eigen::VectorXd current_config_short = current_config.head(n_pts);
-    Eigen::VectorXd goal_short = goal.head(n_pts);
-    //goalBias
-    if (uniform01() < goal_bias){
-        randDirection = goal_short - current_config_short;
-    } 
-    else {
-        randDirection = Eigen::VectorXd::Random(n_pts);
-    }
-    */
-
-    //move one random vertex in a random direction
-    size_t idx_vertex = static_cast<size_t>(uniform01() * 0.25*n_dofs); //random Point in Knot
     Eigen::VectorXd current_config_short = current_config.head(n_pts);
     Eigen::VectorXd goal_short = goal.head(n_pts);
     Eigen::VectorXd randDirection = Eigen::VectorXd::Zero(n_pts);;
 
-    //goalBias
-    if (uniform01() < goal_bias){
+
+    //move one vertex in 3d space
+    if(one_rand_direction_3d){
+        size_t idx_vertex = static_cast<size_t>(uniform01() * (n_pts/3)); //random Point in Knot
+        //goalBias
+        if (uniform01() < goal_bias){
         randDirection.segment<3>(3*idx_vertex) = goal.segment<3>(3*idx_vertex) - current_config.segment<3>(3*idx_vertex);
-    } 
-    else {
+        } 
+        else {
         Eigen::Vector3d rand3d = Eigen::Vector3d::Random().normalized();
         randDirection.segment<3>(3*idx_vertex) += rand3d;
+        }
     }
+    //move all vertecies in random directions
+    else {
+        //goalBias
+        if (uniform01() < goal_bias){
+            randDirection = goal_short - current_config_short;
+        } 
+        else {
+            randDirection = Eigen::VectorXd::Random(n_pts);
+        }
+    }
+    
     Eigen::SparseMatrix<double> J = springJacobian(current_config_short);
     Eigen::VectorXd projectedDirection = Eigen::VectorXd::Zero(n_dofs);
     projectedDirection.head(n_pts) = projectToTangentSpace(J,randDirection);
+
     return projectedDirection;
 
 }
@@ -225,6 +226,7 @@ std::vector<Eigen::VectorXd> RRT::createPath(Eigen::VectorXd connection){
     std::vector<Eigen::VectorXd> start_path;
     //go till you find the start
     while( start_tree[current].parent >=0 ){
+        std::cout << start_tree[current].parent<< std::endl;
         start_path.emplace_back(start_tree[current].config);
         current = start_tree[current].parent;
     }
@@ -266,15 +268,13 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             } else {
                 config_id = static_cast<size_t>(uniform01() * (*trees[t]).size()); //random Knot
             }
-
             Eigen::VectorXd config = (*trees[t])[config_id].config;
             Eigen::VectorXd rand_direction = sampleRandDirection(config, goal);
            
             //try to go in rand direction
             Eigen::VectorXd new_config  = steerInDirection(cp, config, rand_direction);
 
-            auto pts = DoFsToPos(cp.getVars(),0.25*n_dofs);
-            Viewer.updateKnot(pts);
+
             //could not step towards it
             if((new_config - config).norm() < 1e-8) continue;
 
@@ -284,7 +284,6 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
 
             Eigen::VectorXd nearest = new_config;
 
-
             //try to connect to the other tree
             size_t nearest_id = nearestVertex(new_config, *trees[1-t]);
             nearest = (*trees[1-t])[nearest_id].config;
@@ -292,9 +291,11 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
 
             if((other_config - nearest).norm() < 1e-8)continue;
 
+            
             //we can connect both trees
             if((other_config - new_config).norm() < 1e-2){
                 //add new to the tree
+                std::cout <<"trees connect" << std::endl;
                 rrt_vertex other_new_vertex(other_config,nearest_id);
                 (*trees[1-t]).emplace_back(other_new_vertex);
                 nearest = other_config;
@@ -322,8 +323,8 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             auto nearest_start = nearestVertex(start_tree[0].config, goal_tree);
             std::cout << "nearest Vertex to start is: " << nearest_start << " with distance " << (goal_tree[nearest_start].config - start_tree[0].config).norm() <<  std::endl;
 
-            //auto pts = DoFsToPos(cp.getVars(),0.25*n_dofs);
-            //Viewer.updateKnot(pts); 
+            auto pts = DoFsToPos(cp.getVars(),0.25*n_dofs);
+            Viewer.updateKnot(pts); 
         } 
         Viewer.frameTick();  
         
