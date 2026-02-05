@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
     std::vector<Eigen::Vector3d> goal_centerline = reduce_knot_resolution(read_nodes_from_file(goal_file), reductionFactor);
 
     //rotate goal to minimize distance
-    goal_centerline = rotateKnotTillMinDist(start_centerline, goal_centerline);
+    //goal_centerline = rotateKnotTillMinDist(start_centerline, goal_centerline);
 
     int n_pts = start_centerline.size();  
 
@@ -129,7 +129,6 @@ int main(int argc, char** argv) {
     
     // 4. Wrap into PeriodicRodList
     PeriodicRodList rod_list = PeriodicRodList(start_pr);
-    
 
     std::cout << "created rodlist"<< std::endl;
     // 5. Setup problem options
@@ -143,22 +142,32 @@ int main(int argc, char** argv) {
     // 6. Create contact problem
     ContactProblem cp(rod_list, problemOptions);
 
-    //find path by rrt
-    std::cout << "Start Energy: " << cp.energy()<< std::endl;
+
+    std::cout << "Start contact Energy: " << cp.energy()<< std::endl;
     cp.setVars(goal_dofs);
-    std::cout << "Goal Energy: " << cp.energy()<< std::endl;
+    std::cout << "Goal contact Energy: " << cp.energy()<< std::endl;
+
+    double edgeLength = (start_dofs.segment<3>(0) - start_dofs.segment<3>(3)).norm();
+    std::cout << "Start Knot Edge length: " << edgeLength <<std::endl;
+
+    edgeLength = (goal_dofs.segment<3>(0) - goal_dofs.segment<3>(3)).norm();
+    std::cout << "Goal Knot Edge length: " << edgeLength <<std::endl;
+
+
+
    
 
 
     KnotVisualizer Viewer = KnotVisualizer();
     Viewer.setKnot(start_centerline,0.01 * rod_radius);
-    std::vector<Eigen::Vector3d> theta_point = {Eigen::Vector3d(0,0,0), Eigen::Vector3d(0,1000,0)};
-    Viewer.setTheta(theta_point, 0.01 * rod_radius);
+
+    //show the goal state
+    Viewer.setGoalKnot(goal_centerline,0.01 * rod_radius);
     //Save first Knot Vars
     auto startKnot = cp.getVars();
 
     static int iterations = 1000;
-    static int pruningInterval = 100;
+    static int pruningInterval = 1000;
     static double maxEnergy = 10;
     static double stepsize = 0.1;
     static double steplength = 10;

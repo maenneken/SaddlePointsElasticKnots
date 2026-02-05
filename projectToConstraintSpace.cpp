@@ -1,34 +1,87 @@
 #include "projectToConstraintSpace.h"
 
+
+Eigen::SparseMatrix<double> stackJacobians(
+    const Eigen::SparseMatrix<double>& J1,
+    const Eigen::SparseMatrix<double>& J2)
+{
+    // Dimensions
+    const int m1 = J1.rows();
+    const int m2 = J2.rows();
+    const int n  = J1.cols();   // must match J2.cols()
+
+    assert(J2.cols() == n && "Jacobians must have same number of columns (DOFs)");
+
+    Eigen::SparseMatrix<double> J(m1 + m2, n);
+
+    std::vector<Eigen::Triplet<double>> triplets;
+    triplets.reserve(J1.nonZeros() + J2.nonZeros());
+
+    // Copy J1
+    for (int k = 0; k < J1.outerSize(); ++k)
+        for (Eigen::SparseMatrix<double>::InnerIterator it(J1, k); it; ++it)
+            triplets.emplace_back(it.row(), it.col(), it.value());
+
+    // Copy J2 (row-shifted)
+    for (int k = 0; k < J2.outerSize(); ++k)
+        for (Eigen::SparseMatrix<double>::InnerIterator it(J2, k); it; ++it)
+            triplets.emplace_back(it.row() + m1, it.col(), it.value());
+
+    J.setFromTriplets(triplets.begin(), triplets.end());
+    return J;
+}
+
 //f_i(dofs) = ||v_i+1 - v_i||² = 1
 //d_f_i(dofs) = (0,...,0, -2(v_i+1-v_i), 2(v_i+1 - v_i),0,...,0)
 Eigen::SparseMatrix<double> springJacobian(Eigen::VectorXd& dofs){
     std::vector<Eigen::Triplet<double>> triplets;
-    for (size_t i = 0; i < dofs.size()-3; i+=3){
-        Eigen::Vector3d v1 =  dofs.segment<3>(i);
-        Eigen::Vector3d v2 =  dofs.segment<3>(i+3);
+    size_t n_edges = dofs.size() / 3;
+    for (size_t i = 0; i < n_edges; ++i){
+        size_t i1 = (i+1) % n_edges; //wrap to start
+        Eigen::Vector3d v1 =  dofs.segment<3>(3*i);
+        Eigen::Vector3d v2 =  dofs.segment<3>(3*i1); 
         Eigen::Vector3d e = v2-v1;
         for( size_t k = 0; k< 3; ++k){
-            triplets.emplace_back(i, i + k, -2*e(k));
-            triplets.emplace_back(i, i + k + 3, 2*e(k));
+            triplets.emplace_back(i, 3*i + k, -2*e(k));
+            triplets.emplace_back(i, 3*i1 + k, 2*e(k));
         }
     }
-    //edge -1 0
-    size_t id_last = dofs.size()-4;
-    Eigen::Vector3d v1 =  dofs.segment<3>(id_last);   //last
-    Eigen::Vector3d v2 =  dofs.segment<3>(0);         //first
-    Eigen::Vector3d e = v2-v1;
-    for( size_t k = 0; k< 3; ++k){
-        triplets.emplace_back(dofs.size()-1, id_last + k, -2*e(k));
-        triplets.emplace_back(dofs.size()-1, 0 + k + 3, 2*e(k));
-    }
-
-    Eigen::SparseMatrix<double> J(dofs.size(),dofs.size());
+    Eigen::SparseMatrix<double> J(n_edges,dofs.size());
     J.setFromTriplets(triplets.begin(), triplets.end());
     
 
     return J;    
 }
+//fi​=∥(vi+1​−vi​)−(vi​−vi−1​)∥² = fi​=∥vi+1​−2vi​+vi−1​∥²
+//c_i = vi+1​−2vi​+vi−1
+//∂f/∂v_{i-1} = +2 c_i
+//∂f/∂v_i = -4 c_i
+//∂f/∂v_{i+1} = +2 c_i
+//wire wants to be straight
+Eigen::SparseMatrix<double> bendJacobian(Eigen::VectorXd& dofs){
+    std::vector<Eigen::Triplet<double>> triplets;
+    size_t n_edges = dofs.size() / 3;
+    for (size_t i = 0; i < n_edges; ++i){
+        size_t i0 = (i-1) % n_edges; //wrap to start
+        size_t i1 = (i+1) % n_edges; //wrap to start
+        
+        Eigen::Vector3d v0 =  dofs.segment<3>(3*i0);
+        Eigen::Vector3d v1 =  dofs.segment<3>(3*i);
+        Eigen::Vector3d v2 =  dofs.segment<3>(3*i1); 
+        Eigen::Vector3d c= v2 - 2*v1 + v0;
+        for( size_t k = 0; k< 3; ++k){
+            triplets.emplace_back(i, 3*i0 + k, 2*c(k));
+            triplets.emplace_back(i, 3*i + k, -4*c(k));
+            triplets.emplace_back(i, 3*i1 + k, 2*c(k));
+        }
+    }
+    Eigen::SparseMatrix<double> J(n_edges,dofs.size());
+    J.setFromTriplets(triplets.begin(), triplets.end());
+    
+
+    return J;    
+}
+    
 
 //delta = d0​−XT (XXT)−1 X*d0  
 //d0 disired direction

@@ -38,6 +38,16 @@ void KnotVisualizer::setKnot(const std::vector<Eigen::Vector3d>& pts, const doub
     contact_force->setVectorLengthScale(1);
     
 }
+void KnotVisualizer::setGoalKnot(const std::vector<Eigen::Vector3d>& pts, const double radius) {
+    std::vector<std::array<size_t,2>> edges;
+    for (size_t i = 0; i + 1 < pts.size(); ++i)
+        edges.push_back({i, i+1});
+
+    edges.push_back({0,pts.size()-1});
+
+    goal_curve = polyscope::registerCurveNetwork("goal knot", pts, edges);
+    goal_curve->setRadius(radius, true); 
+}
 void KnotVisualizer::setTheta(const std::vector<Eigen::Vector3d>& pts, const double radius) {
 
     std::vector<Eigen::Vector3d> grad_theta(pts.size(), Eigen::Vector3d::Zero());

@@ -8,6 +8,7 @@ class KnotVisualizer {
 public:
     KnotVisualizer();
     void setKnot(const std::vector<Eigen::Vector3d>& pts, const double radius);
+    void setGoalKnot(const std::vector<Eigen::Vector3d>& pts, const double radius);
     void setTheta(const std::vector<Eigen::Vector3d>& pts, const double radius);
     void colorTwist(Eigen::VectorXd& twist);
     void updateKnot(const std::vector<Eigen::Vector3d>& pts);
@@ -31,4 +32,6 @@ private:
     polyscope::PointCloudVectorQuantity* theta_grad_mod = nullptr;
     polyscope::PointCloudScalarQuantity* theta_value = nullptr;
     std::function<void()> userCallback;
+
+    polyscope::CurveNetwork* goal_curve = nullptr;
 };

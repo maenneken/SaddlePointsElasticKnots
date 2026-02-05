@@ -151,7 +151,7 @@ Eigen::VectorXd RRT::sampleRandDirection(const Eigen::VectorXd& current_config, 
         }
     }
     
-    Eigen::SparseMatrix<double> J = springJacobian(current_config_short);
+    Eigen::SparseMatrix<double> J = stackJacobians(springJacobian(current_config_short),bendJacobian(current_config_short));
     Eigen::VectorXd projectedDirection = Eigen::VectorXd::Zero(n_dofs);
     projectedDirection.head(n_pts) = projectToTangentSpace(J,randDirection);
 
@@ -326,8 +326,11 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             auto nearest_start = nearestVertex(start_tree[0].config, goal_tree);
             std::cout << "nearest Vertex to start is: " << nearest_start << " with distance " << (goal_tree[nearest_start].config - start_tree[0].config).norm() <<  std::endl;
 
-            auto pts = DoFsToPos(cp.getVars(),0.25*n_dofs);
+            auto pts = DoFsToPos(start_tree[nearest_goal].config,0.25*n_dofs);
             Viewer.updateKnot(pts); 
+            auto direction_to_goal = DoFsToPos(goal_tree[0].config - start_tree[nearest_goal].config,0.25*n_dofs);
+            Viewer.showNodeGradient(direction_to_goal);
+            
         } 
         Viewer.frameTick();  
         
