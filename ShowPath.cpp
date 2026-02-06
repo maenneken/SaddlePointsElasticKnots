@@ -65,21 +65,43 @@ int main(int argc, char** argv) {
     int path_idx = 0;
     bool show_path = false;
     Viewer.setUserCallback([&]() {
-        //todo add new Energy based on different distance fkt to add information. ex: 1/(d²+1) or something with e^x
-        //todo add option for distance fkt where you can decide how many neighbors are included in the calkulation (direct neighbors might not be important to know where they are)
-        //todo add gradient and Hessian of the energy fkt
-        //Idea is to find negative Eigenvalues
-        //todo add controls to load a Knot and set up a contactproblem with all options
-        //todo instead of converting to sparse and dense and back use dense.
         ImGui::Begin("Controls");
-        ImGui::SliderInt("Step", &path_idx, 0, path.size()-1);
-        Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
+        ImGui::PushItemWidth(200);
+        ImGui::SliderInt("path_idx", &path_idx, 0, path.size()-1);
+        ImGui::PopItemWidth();
+
+        ImGui::SameLine();
+        if (ImGui::Button("-")) path_idx--;
+
+        ImGui::SameLine();
+        if (ImGui::Button("+")) path_idx++;
+
+        path_idx = std::clamp(path_idx, 0, (int)path.size()-1);
+        if(!show_path) Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
+
+        if(ImGui::Button("show interpolated path")){
+            show_path=true;
+        }
         ImGui::End();   
 
     });
     
     //main loop
     while (!polyscope::windowRequestsClose()) { 
+        if(show_path){
+            for( size_t i = 0; i< path.size()-1;++i){
+                Eigen::VectorXd direction = path[i+1] - path[i];
+                direction.normalize();
+                auto current = path[i];
+                while((current - path[i+1]).norm()> 0.1){
+                    current += 0.1*direction;
+                    Viewer.updateKnot(DoFsToPos(current, n_pts));
+                    Viewer.frameTick();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                }
+            }
+            show_path=false;
+        }
         Viewer.frameTick();
     }
 

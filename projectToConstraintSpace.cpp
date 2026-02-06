@@ -58,6 +58,8 @@ Eigen::SparseMatrix<double> springJacobian(Eigen::VectorXd& dofs){
 //∂f/∂v_i = -4 c_i
 //∂f/∂v_{i+1} = +2 c_i
 //wire wants to be straight
+//todo e_i dot e_i+1 ableiten sollte konstante bend an jedem punkt
+//abgeleitet aus discrete curvature aus discrete Elastic Rod paper
 Eigen::SparseMatrix<double> bendJacobian(Eigen::VectorXd& dofs){
     std::vector<Eigen::Triplet<double>> triplets;
     size_t n_edges = dofs.size() / 3;
@@ -81,7 +83,12 @@ Eigen::SparseMatrix<double> bendJacobian(Eigen::VectorXd& dofs){
 
     return J;    
 }
-    
+//todo add twist Jacobian / torsion
+//halte winkel zwischen ebenen konstant
+
+//todo füge contactForce als constraint hinzu
+
+//todo füge zentrieren des knoten als constraint sum(x)=sum(y) = sum(z)
 
 //delta = d0​−XT (XXT)−1 X*d0  
 //d0 disired direction

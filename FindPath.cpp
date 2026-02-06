@@ -54,10 +54,10 @@ std::vector<Eigen::Vector3d> rotateKnotTillMinDist(const std::vector<Eigen::Vect
 
 
 int main(int argc, char** argv) {
-    //std::string start_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0001.obj";
-    //std::string goal_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0033.obj";
-    std::string start_file = "../data/NoCollision/reduced0001.obj";
-    std::string goal_file = "../data/NoCollision/reduced0033.obj";
+    std::string start_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0001.obj";
+    std::string goal_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0033.obj";
+    //std::string start_file = "../data/NoCollision/reduced0001.obj";
+    //std::string goal_file = "../data/NoCollision/reduced0033.obj";
     double rod_radius = 0.2;
     int reductionFactor = 4;
     bool hasCollisions = true;
@@ -192,7 +192,6 @@ int main(int argc, char** argv) {
         ImGui::End();   
 
     });
-    
     //main loop
     while (!polyscope::windowRequestsClose()) { 
         Viewer.frameTick();

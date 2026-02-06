@@ -151,7 +151,8 @@ Eigen::VectorXd RRT::sampleRandDirection(const Eigen::VectorXd& current_config, 
         }
     }
     
-    Eigen::SparseMatrix<double> J = stackJacobians(springJacobian(current_config_short),bendJacobian(current_config_short));
+    //Eigen::SparseMatrix<double> J = stackJacobians(springJacobian(current_config_short),bendJacobian(current_config_short));
+    Eigen::SparseMatrix<double> J = springJacobian(current_config_short);
     Eigen::VectorXd projectedDirection = Eigen::VectorXd::Zero(n_dofs);
     projectedDirection.head(n_pts) = projectToTangentSpace(J,randDirection);
 
@@ -245,7 +246,7 @@ std::vector<Eigen::VectorXd> RRT::createPath(Eigen::VectorXd connection){
     goal_path.emplace_back(goal_tree[0].config);
     
     //remove duplicate
-    if(!goal_path.empty()) goal_path.erase(goal_path.begin());
+    //if(!goal_path.empty()) goal_path.erase(goal_path.begin());
 
     std::vector<Eigen::VectorXd> full_path = start_path;
     full_path.insert(full_path.end(), goal_path.begin(), goal_path.end());
@@ -291,6 +292,7 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             size_t nearest_id = nearestVertex(new_config, *trees[1-t]);
             nearest = (*trees[1-t])[nearest_id].config;
             Eigen::VectorXd other_config = steerTowardsConfig(cp, nearest, new_config);
+            //maybe better to connect to goal?
 
             if((other_config - nearest).norm() < 1e-8)continue;
 
