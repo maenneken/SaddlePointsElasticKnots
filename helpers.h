@@ -14,6 +14,15 @@
 #include "3rdparty/ElasticKnots/PeriodicRodList.hh"
 #include "3rdparty/ElasticKnots/ContactProblem.hh"
 
+#include "KnotVisualizer.h"
+
+
+#define RED     "\033[31m"
+#define GREEN   "\033[32m"
+#define YELLOW  "\033[33m"
+#define BLUE    "\033[34m"
+#define RESET   "\033[0m"
+
 struct HessianAndGradient {
     Eigen::MatrixXd H;
     Eigen::VectorXd g;
@@ -36,3 +45,6 @@ Eigen::SparseMatrix<double> computeHessian(ContactProblem& cp);
 std::vector<Eigen::Vector3d> reduce_knot_resolution(std::vector<Eigen::Vector3d> pts, size_t factor);
 HessianAndGradient makeSmaller(Eigen::MatrixXd &H , Eigen::VectorXd& g, size_t k);
 HessianAndGradient insertInBiggerHg(Eigen::MatrixXd & H_big, Eigen::VectorXd& g_big, Eigen::MatrixXd & H_small, Eigen::VectorXd& g_small);
+void savePathTxt(const std::string& filename, const std::vector<Eigen::VectorXd>& path);
+std::vector<Eigen::VectorXd>loadPathTxt(const std::string& filename);
+void showPath(std::vector<Eigen::VectorXd>& path, ContactProblem& cp, KnotVisualizer& Viewer);

@@ -15,6 +15,7 @@ void KnotVisualizer::setKnot(const std::vector<Eigen::Vector3d>& pts, const doub
 
     curve = polyscope::registerCurveNetwork("knot", pts, edges);
     curve->setRadius(radius, true);
+    curve->resetTransform();
 
     std::vector<Eigen::Vector3d> grad(pts.size(), Eigen::Vector3d::Zero());
     Eigen::VectorXd twist = Eigen::VectorXd::Zero(edges.size());
@@ -25,17 +26,14 @@ void KnotVisualizer::setKnot(const std::vector<Eigen::Vector3d>& pts, const doub
 
     node_grad = curve->addNodeVectorQuantity("node gradient", grad);
     node_grad->setEnabled(true);
-    node_grad->setVectorLengthScale(10);
 
 
     node_grad_mod = curve->addNodeVectorQuantity("node gradient modified", grad);
     node_grad_mod->setEnabled(true);
-    node_grad_mod->setVectorLengthScale(10);
     
 
     contact_force = curve->addNodeVectorQuantity("contct force", grad);
     contact_force->setEnabled(true);
-    contact_force->setVectorLengthScale(1);
     
 }
 void KnotVisualizer::setGoalKnot(const std::vector<Eigen::Vector3d>& pts, const double radius) {
@@ -47,6 +45,7 @@ void KnotVisualizer::setGoalKnot(const std::vector<Eigen::Vector3d>& pts, const 
 
     goal_curve = polyscope::registerCurveNetwork("goal knot", pts, edges);
     goal_curve->setRadius(radius, true); 
+    goal_curve->resetTransform();
 }
 void KnotVisualizer::setTheta(const std::vector<Eigen::Vector3d>& pts, const double radius) {
 

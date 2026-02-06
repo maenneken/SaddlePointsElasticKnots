@@ -7,6 +7,7 @@
 
 
 
+
 /** from 3rdparty/ElasticKnots/python/helpers.py
     def define_periodic_rod(pts, material, rest_curv_rad=np.inf, total_opening_angle=0, minimize_twist=False):
     duplicated_0 = np.linalg.norm(pts[0, :] - pts[-2, :]) < 1e-12
@@ -263,5 +264,82 @@ HessianAndGradient insertInBiggerHg(Eigen::MatrixXd & H_big, Eigen::VectorXd& g_
 
     return HessianAndGradient(H_big, g_big);
 }
+
+void savePathTxt(const std::string& filename,
+                 const std::vector<Eigen::VectorXd>& path){
+    std::ofstream out(filename);
+    if (!out.is_open()) {
+        throw std::runtime_error("Could not open file: " + filename);
+    }
+
+    // Optional header
+    out << "# num_vectors " << path.size() << "\n";
+    if (!path.empty())
+        out << "# vector_size " << path[0].size() << "\n";
+
+    for (size_t i = 0; i < path.size(); ++i) {
+        const Eigen::VectorXd& v = path[i];
+        for (int j = 0; j < v.size(); ++j) {
+            out << v[j];
+            if (j + 1 < v.size()) out << " ";
+        }
+        out << "\n";
+    }
+
+    out.close();
+}
+std::vector<Eigen::VectorXd>loadPathTxt(const std::string& filename){
+    std::ifstream in(filename);
+    if (!in.is_open()) {
+        throw std::runtime_error("Could not open file: " + filename);
+    }
+
+    std::vector<Eigen::VectorXd> path;
+    std::string line;
+
+    while (std::getline(in, line)) {
+
+        // Skip empty lines
+        if (line.empty()) continue;
+
+        // Skip comments
+        if (line[0] == '#') continue;
+
+        std::stringstream ss(line);
+        std::vector<double> values;
+        double val;
+
+        while (ss >> val) {
+            values.push_back(val);
+        }
+
+        if (!values.empty()) {
+            Eigen::VectorXd v(values.size());
+            for (size_t i = 0; i < values.size(); ++i)
+                v[i] = values[i];
+
+            path.emplace_back(std::move(v));
+        }
+    }
+    return path;
+}
+
+void showPath(std::vector<Eigen::VectorXd>& path, ContactProblem& cp, KnotVisualizer& Viewer){
+    for(size_t k = 0; k< path.size(); ++k ){
+        cp.setVars(path[k]);
+        auto pts = DoFsToPos(path[k], 0.25 *path[k].size());
+        Viewer.updateKnot(pts);
+        Viewer.frameTick();
+        std::cout               << std::endl << std::endl
+                                << BLUE << "Step: " << k << RESET
+                                << ", current Energy: " << cp.energy() 
+                                << ", Gradient: " << cp.gradient().norm() 
+                                << ", Position: " << cp.getVars().norm()
+                                << std::endl << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+}
+
 
 

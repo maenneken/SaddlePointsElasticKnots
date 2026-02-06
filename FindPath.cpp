@@ -30,8 +30,7 @@ double knotDistance(const std::vector<Eigen::Vector3d>& a,
 }
 
 // rotates goal knot to minimal distance to start
-std::vector<Eigen::Vector3d>
-rotateKnotTillMinDist(const std::vector<Eigen::Vector3d>& start,
+std::vector<Eigen::Vector3d> rotateKnotTillMinDist(const std::vector<Eigen::Vector3d>& start,
                       const std::vector<Eigen::Vector3d>& goal)
 {
     assert(start.size() == goal.size());
@@ -52,22 +51,7 @@ rotateKnotTillMinDist(const std::vector<Eigen::Vector3d>& start,
 
     return goal_minDist;
 }
-void showPath(std::vector<Eigen::VectorXd>& path, ContactProblem& cp, KnotVisualizer& Viewer){
-    for(size_t k = 0; k< path.size(); ++k ){
-        cp.setVars(path[k]);
-        auto pts = DoFsToPos(path[k], 0.25 *path[k].size());
-        Viewer.updateKnot(pts);
-        Viewer.frameTick();
-        std::cout               << std::endl << std::endl
-                                << BLUE << "Step: " << k << RESET
-                                << ", current Energy: " << cp.energy() 
-                                << ", Gradient: " << cp.gradient().norm() 
-                                << ", Position: " << cp.getVars().norm()
-                                << std::endl << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
 
-}
 
 int main(int argc, char** argv) {
     //std::string start_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0001.obj";
@@ -177,7 +161,8 @@ int main(int argc, char** argv) {
 
    
     bool running = false;
-
+    bool show_path = false;
+    std::vector<Eigen::VectorXd> path;
     //set buttons
     Viewer.setUserCallback([&]() {
         //todo add controls to load a Knot and set up a contactproblem with all options
@@ -196,6 +181,13 @@ int main(int argc, char** argv) {
         if (ImGui::Button("Find Path")) {
             running=true;
         }
+        if (ImGui::Button("Show Path")) {
+            show_path=true;
+        }
+        if (ImGui::Button("Save Path")) {
+            savePathTxt("foundPath.txt",path);
+        }
+
   
         ImGui::End();   
 
@@ -207,13 +199,18 @@ int main(int argc, char** argv) {
         if(running){
             RRT rrt(start_dofs, goal_dofs, maxEnergy, steplength, goalBias, stepsize, pruningInterval,oneRandDirection);
 
-            std::vector<Eigen::VectorXd> path = rrt.findConstrainedPath(cp,iterations,Viewer);
+            path = rrt.findConstrainedPath(cp,iterations,Viewer);
             //std::vector<Eigen::VectorXd> path = rrt.findPath(cp,iterations,Viewer);
 
             std::cout << "Found a path of size: " << path.size() << std::endl; 
             showPath(path,cp,Viewer);
             running=false;
         }
+        if(show_path){
+            showPath(path,cp,Viewer);
+            show_path = false;
+        }
+
     }
 
 
