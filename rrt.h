@@ -18,10 +18,10 @@ struct rrt_vertex{
 };
 class RRT{
     public:
-        RRT(const Eigen::VectorXd& start, const Eigen::VectorXd& goal, double maxEnergy = 20, double stepLength = 2, double goalBias = 0.1, double steerStep = 0.1, size_t pruningInterval = 100, bool oneRandDirection = true);
+        RRT(const Eigen::VectorXd& start, const Eigen::VectorXd& goal, double maxEnergy = 20, double stepLength = 2, double goalBias = 0.1, double steerStep = 0.1, size_t pruningInterval = 100, bool oneRandDirection = true, double constraintStiffness = 0.9);
         std::vector<rrt_vertex> pruneAllLeafNodes(std::vector<rrt_vertex>& tree);
         Eigen::VectorXd sampleRandConfig(ContactProblem& cp, const Eigen::VectorXd& goal, const std::vector<rrt_vertex>& tree);
-        Eigen::VectorXd sampleRandDirection(const Eigen::VectorXd& current_config, const Eigen::VectorXd& goal);
+        Eigen::VectorXd sampleRandDirection(ContactProblem& cp, const Eigen::VectorXd& current_config, const Eigen::VectorXd& goal);
         size_t nearestVertex(const Eigen::VectorXd& config, const std::vector<rrt_vertex>& tree);
         Eigen::VectorXd steerTowardsConfig(ContactProblem& cp, Eigen::VectorXd& near, Eigen::VectorXd& rand);
         Eigen::VectorXd steerInDirection(ContactProblem& cp, Eigen::VectorXd& config, Eigen::VectorXd& direction);
@@ -42,6 +42,7 @@ class RRT{
         double steer_step;
         size_t pruning_interval;
         bool one_rand_direction_3d;
+        double constraint_stiffness;
         
 
 

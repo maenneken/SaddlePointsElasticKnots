@@ -112,6 +112,13 @@ set(PYBIND11_INSTALL OFF CACHE BOOL "" FORCE)
 ]]
 
 
+add_compile_options(
+    -Wno-unused-parameter
+    -Wno-unused-function
+    -Wno-unused-result
+    -Wno-sign-compare
+)
+
 set(LIBIGL_WITH_OPENGL_GLFW OFF CACHE BOOL "" FORCE)
 set(LIBIGL_WITH_OPENGL_GLFW_IMGUI OFF CACHE BOOL "" FORCE)
 #set(POLYSCOPE_USE_SYSTEM_GLAD OFF CACHE BOOL "Use system glad")
@@ -137,7 +144,7 @@ target_include_directories(ElasticKnots
 
 # Polyscope target
 target_include_directories(polyscope
-    PUBLIC
+    SYSTEM PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/polyscope/deps/imgui
     ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/polyscope/deps/imgui/imgui
     ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/polyscope/deps/imgui/implot

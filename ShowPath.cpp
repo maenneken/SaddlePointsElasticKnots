@@ -64,6 +64,7 @@ int main(int argc, char** argv) {
     //set buttons
     int path_idx = 0;
     bool show_path = false;
+    int sleep_mil = 10;
     Viewer.setUserCallback([&]() {
         ImGui::Begin("Controls");
         ImGui::PushItemWidth(200);
@@ -79,6 +80,7 @@ int main(int argc, char** argv) {
         path_idx = std::clamp(path_idx, 0, (int)path.size()-1);
         if(!show_path) Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
 
+        ImGui::InputInt("sleep between frame", &sleep_mil);
         if(ImGui::Button("show interpolated path")){
             show_path=true;
         }
@@ -89,15 +91,30 @@ int main(int argc, char** argv) {
     //main loop
     while (!polyscope::windowRequestsClose()) { 
         if(show_path){
-            for( size_t i = 0; i< path.size()-1;++i){
+            for( size_t i = path_idx; i< path.size()-1;++i){
                 Eigen::VectorXd direction = path[i+1] - path[i];
                 direction.normalize();
                 auto current = path[i];
                 while((current - path[i+1]).norm()> 0.1){
                     current += 0.1*direction;
+                    cp.setVars(current);
+                    std::cout       << std::endl << std::endl
+                                << BLUE << "It: " << i << RESET
+                                << ", current Energy: " << cp.energy() 
+                                << GREEN << ", contact Energy: " << cp.contactEnergy() << RESET
+                                << ", Gradient: " << cp.gradient().norm()
+                                << ", Position: " << cp.getVars().norm() 
+                                << std::endl;
+
+                    if(cp.contactEnergy() > 1000){
+                        std::cout << RED << "possible selfintersection at " << i << std::endl;
+                    }
+                    if(cp.contactEnergy() > 1){
+                        std::cout << cp.contactForces() << std::endl;
+                    }
                     Viewer.updateKnot(DoFsToPos(current, n_pts));
                     Viewer.frameTick();
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(sleep_mil));
                 }
             }
             show_path=false;

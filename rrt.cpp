@@ -39,7 +39,8 @@ RRT::RRT(const Eigen::VectorXd& start,
          double goalBias,
          double steerStep,
          size_t pruningInterval,
-         bool oneRandDirection){
+         bool oneRandDirection,
+         double constraintStiffness){
     assert(start.size() == goal.size() && "start and goal must have same dimension");
     assert(maxEnergy > 0 && "maxEnergy must be positive");
     assert(stepLength > 0 && "stepLength must be positive");
@@ -56,6 +57,7 @@ RRT::RRT(const Eigen::VectorXd& start,
     goal_bias = goalBias;
     pruning_interval = pruningInterval;
     one_rand_direction_3d = oneRandDirection;
+    constraint_stiffness = constraintStiffness;
 
     min_val = std::min(start.minCoeff(), goal.minCoeff()) - 10;
     max_val = std::max(start.maxCoeff(), goal.maxCoeff()) + 10;
@@ -120,7 +122,7 @@ Eigen::VectorXd RRT::sampleRandConfig(ContactProblem& cp, const Eigen::VectorXd&
 }
 //Samples a random direction and projects it to presever spring constraint
 //if goal bias direction goes towards goal
-Eigen::VectorXd RRT::sampleRandDirection(const Eigen::VectorXd& current_config, const Eigen::VectorXd& goal){
+Eigen::VectorXd RRT::sampleRandDirection(ContactProblem& cp,const Eigen::VectorXd& current_config, const Eigen::VectorXd& goal){
     
     size_t n_pts = 0.75*n_dofs;
     Eigen::VectorXd current_config_short = current_config.head(n_pts);
@@ -151,10 +153,23 @@ Eigen::VectorXd RRT::sampleRandDirection(const Eigen::VectorXd& current_config, 
         }
     }
     
-    //Eigen::SparseMatrix<double> J = stackJacobians(springJacobian(current_config_short),bendJacobian(current_config_short));
-    Eigen::SparseMatrix<double> J = springJacobian(current_config_short);
+    //stretch and bend seem to be enough 
+    Eigen::SparseMatrix<double> J = stackJacobians(stretchJacobian(current_config_short),bendJacobian(current_config_short));
+    
+    //adding contact or twist does not work.
+    //cp.setVars(current_config);
+    //Eigen::MatrixXd contactForces = cp.contactForces();
+    //J = stackJacobians(J,contactJacobian(contactForces));
+    //J = stackJacobians(J,twistJacobian(current_config_short));
+    //Eigen::VectorXd g = cp.gradient().head(n_pts);
+    //Eigen::SparseMatrix<double> J = gradientJacobian(g);
+
     Eigen::VectorXd projectedDirection = Eigen::VectorXd::Zero(n_dofs);
     projectedDirection.head(n_pts) = projectToTangentSpace(J,randDirection);
+
+    //Eigen::VectorXd randDirection_long = Eigen::VectorXd::Zero(n_dofs);
+    //randDirection_long.head(n_pts) = randDirection;
+    //Eigen::VectorXd projectedDirection_final = (1-constraint_stiffness) * randDirection_long + constraint_stiffness * projectedDirection;
 
     return projectedDirection;
 
@@ -273,7 +288,7 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
                 config_id = static_cast<size_t>(uniform01() * (*trees[t]).size()); //random Knot
             }
             Eigen::VectorXd config = (*trees[t])[config_id].config;
-            Eigen::VectorXd rand_direction = sampleRandDirection(config, goal);
+            Eigen::VectorXd rand_direction = sampleRandDirection(cp, config, goal);
            
             //try to go in rand direction
             Eigen::VectorXd new_config  = steerInDirection(cp, config, rand_direction);

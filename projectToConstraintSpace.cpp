@@ -33,7 +33,7 @@ Eigen::SparseMatrix<double> stackJacobians(
 
 //f_i(dofs) = ||v_i+1 - v_i||² = 1
 //d_f_i(dofs) = (0,...,0, -2(v_i+1-v_i), 2(v_i+1 - v_i),0,...,0)
-Eigen::SparseMatrix<double> springJacobian(Eigen::VectorXd& dofs){
+Eigen::SparseMatrix<double> stretchJacobian(Eigen::VectorXd& dofs){
     std::vector<Eigen::Triplet<double>> triplets;
     size_t n_edges = dofs.size() / 3;
     for (size_t i = 0; i < n_edges; ++i){
@@ -64,15 +64,15 @@ Eigen::SparseMatrix<double> bendJacobian(Eigen::VectorXd& dofs){
     std::vector<Eigen::Triplet<double>> triplets;
     size_t n_edges = dofs.size() / 3;
     for (size_t i = 0; i < n_edges; ++i){
-        size_t i0 = (i-1) % n_edges; //wrap to start
+        size_t im1 = (i + n_edges - 1) % n_edges; //wrap to start
         size_t i1 = (i+1) % n_edges; //wrap to start
         
-        Eigen::Vector3d v0 =  dofs.segment<3>(3*i0);
+        Eigen::Vector3d v0 =  dofs.segment<3>(3*im1);
         Eigen::Vector3d v1 =  dofs.segment<3>(3*i);
         Eigen::Vector3d v2 =  dofs.segment<3>(3*i1); 
         Eigen::Vector3d c= v2 - 2*v1 + v0;
         for( size_t k = 0; k< 3; ++k){
-            triplets.emplace_back(i, 3*i0 + k, 2*c(k));
+            triplets.emplace_back(i, 3*im1 + k, 2*c(k));
             triplets.emplace_back(i, 3*i + k, -4*c(k));
             triplets.emplace_back(i, 3*i1 + k, 2*c(k));
         }
@@ -80,15 +80,65 @@ Eigen::SparseMatrix<double> bendJacobian(Eigen::VectorXd& dofs){
     Eigen::SparseMatrix<double> J(n_edges,dofs.size());
     J.setFromTriplets(triplets.begin(), triplets.end());
     
+    return J;    
+}
+//fi​(dofs)=(vi+2​−2vi+1​+vi​)−(vi+1​−2vi​+vi−1​)
+//fi​=vi+2​−3vi+1​+3vi​−vi−1
+//curvature between neighbors should stay the same
+//not realy twist it is more a bend
+
+Eigen::SparseMatrix<double> twistJacobian(Eigen::VectorXd& dofs){
+    std::vector<Eigen::Triplet<double>> triplets;
+    size_t n_edges = dofs.size() / 3;
+    for (size_t i = 0; i < n_edges; ++i){
+        size_t im1 = (i + n_edges - 1) % n_edges; //wrap to start
+        size_t i1 = (i+1) % n_edges; //wrap to start
+        size_t i2 = (i+2) % n_edges; //wrap to start
+        
+        for( size_t k = 0; k< 3; ++k){
+            triplets.emplace_back(i, 3*im1 + k,     -1.0);
+            triplets.emplace_back(i, 3*i   + k,      3.0);
+            triplets.emplace_back(i, 3*i1  + k,     -3.0);
+            triplets.emplace_back(i, 3*i2  + k,      1.0);
+        }
+    }
+    Eigen::SparseMatrix<double> J(n_edges,dofs.size());
+    J.setFromTriplets(triplets.begin(), triplets.end());
+    
+    return J;    
+}
+
+//twist bend stretch together only lets the knot be rotated... maybe weighted least squares?
+
+//contactforce has shape n_vertecies x 3
+Eigen::SparseMatrix<double> contactJacobian(Eigen::MatrixXd& contactForces){
+    std::vector<Eigen::Triplet<double>> triplets;
+    for (size_t i = 0; i < contactForces.rows(); ++i){
+        Eigen::Vector3d v = contactForces.row(i).transpose();
+        for( size_t k = 0; k< 3; ++k){
+            triplets.emplace_back(0, 3*i + k, v(k));
+        }
+    }
+    Eigen::SparseMatrix<double> J(1,contactForces.rows()*3);
+    J.setFromTriplets(triplets.begin(), triplets.end());
 
     return J;    
 }
-//todo add twist Jacobian / torsion
-//halte winkel zwischen ebenen konstant
+Eigen::SparseMatrix<double> gradientJacobian(Eigen::VectorXd& gradient){
+    std::vector<Eigen::Triplet<double>> triplets;
+    size_t n_vertecies = gradient.size() / 3;
 
-//todo füge contactForce als constraint hinzu
+    for (size_t i = 0; i < n_vertecies; ++i){
+        Eigen::Vector3d v = gradient.segment<3>(3*i);
+        for( size_t k = 0; k< 3; ++k){
+            triplets.emplace_back(0, 3*i + k, v(k));
+        }
+    }
+    Eigen::SparseMatrix<double> J(1,n_vertecies*3);
+    J.setFromTriplets(triplets.begin(), triplets.end());
 
-//todo füge zentrieren des knoten als constraint sum(x)=sum(y) = sum(z)
+    return J;    
+}
 
 //delta = d0​−XT (XXT)−1 X*d0  
 //d0 disired direction

@@ -5,13 +5,6 @@
 
 
 
-#define RED     "\033[31m"
-#define GREEN   "\033[32m"
-#define YELLOW  "\033[33m"
-#define BLUE    "\033[34m"
-#define RESET   "\033[0m"
-
-
 
 // rotate right by 1
 inline void rotateRight(std::vector<Eigen::Vector3d>& v) {
@@ -54,10 +47,10 @@ std::vector<Eigen::Vector3d> rotateKnotTillMinDist(const std::vector<Eigen::Vect
 
 
 int main(int argc, char** argv) {
-    std::string start_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0001.obj";
-    std::string goal_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0033.obj";
-    //std::string start_file = "../data/NoCollision/reduced0001.obj";
-    //std::string goal_file = "../data/NoCollision/reduced0033.obj";
+    //std::string start_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0001.obj";
+    //std::string goal_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0033.obj";
+    std::string start_file = "../data/NoCollision/reduced0001.obj";
+    std::string goal_file = "../data/NoCollision/reduced0033.obj";
     double rod_radius = 0.2;
     int reductionFactor = 4;
     bool hasCollisions = true;
@@ -153,11 +146,11 @@ int main(int argc, char** argv) {
     static int iterations = 1000;
     static int pruningInterval = 1000;
     static double maxEnergy = 10;
-    static double stepsize = 0.1;
+    static double stepsize = 1;
     static double steplength = 10;
     static double goalBias = 0.2;
-    static bool oneRandDirection = false;
-
+    static bool oneRandDirection = true;
+    static double constraintStiffness = 1;
 
    
     bool running = false;
@@ -173,6 +166,7 @@ int main(int argc, char** argv) {
         ImGui::InputDouble("stepsize", &stepsize,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("stepLength", &steplength,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("goal Bias", &goalBias,(0.001),(0.01),"%.4f");
+        ImGui::InputDouble("Constraint Stiffness", &constraintStiffness,(0.001),(0.01),"%.4f");
         ImGui::Checkbox("oneRandDirection", &oneRandDirection);
     
         
@@ -196,7 +190,7 @@ int main(int argc, char** argv) {
     while (!polyscope::windowRequestsClose()) { 
         Viewer.frameTick();
         if(running){
-            RRT rrt(start_dofs, goal_dofs, maxEnergy, steplength, goalBias, stepsize, pruningInterval,oneRandDirection);
+            RRT rrt(start_dofs, goal_dofs, maxEnergy, steplength, goalBias, stepsize, pruningInterval,oneRandDirection,constraintStiffness);
 
             path = rrt.findConstrainedPath(cp,iterations,Viewer);
             //std::vector<Eigen::VectorXd> path = rrt.findPath(cp,iterations,Viewer);
