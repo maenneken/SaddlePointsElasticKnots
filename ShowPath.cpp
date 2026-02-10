@@ -109,9 +109,6 @@ int main(int argc, char** argv) {
                     if(cp.contactEnergy() > 1000){
                         std::cout << RED << "possible selfintersection at " << i << std::endl;
                     }
-                    if(cp.contactEnergy() > 1){
-                        std::cout << cp.contactForces() << std::endl;
-                    }
                     Viewer.updateKnot(DoFsToPos(current, n_pts));
                     Viewer.frameTick();
                     std::this_thread::sleep_for(std::chrono::milliseconds(sleep_mil));

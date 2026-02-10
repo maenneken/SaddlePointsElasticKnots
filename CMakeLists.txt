@@ -186,10 +186,19 @@ add_executable(ShowPath
     KnotVisualizer.cpp
 )
 
+add_executable(OptimizePath
+    OptimizePath.cpp
+    NEB.cpp
+    helpers.cpp
+    KnotVisualizer.cpp
+)
+
+
 
 target_link_libraries(test1 PRIVATE polyscope ElasticKnots)
 target_link_libraries(FindSaddle PRIVATE polyscope ElasticKnots)
 target_link_libraries(SmashKnot PRIVATE polyscope ElasticKnots)
 target_link_libraries(FindPath PRIVATE polyscope ElasticKnots)
 target_link_libraries(ShowPath PRIVATE polyscope ElasticKnots)
+target_link_libraries(OptimizePath PRIVATE polyscope ElasticKnots)
 
