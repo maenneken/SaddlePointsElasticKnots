@@ -4,7 +4,25 @@
 #include "helpers.h"
 #include "KnotVisualizer.h"
 
+int printNumNegEigenvalues(ContactProblem& cp){
+    //look at eigenvalues
+    auto H_sparse = computeHessian(cp);
+    Eigen::MatrixXd H_dense = Eigen::MatrixXd(H_sparse);
 
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(H_dense);
+    auto u = solver.eigenvalues();
+    auto U = solver.eigenvectors();
+
+    if (solver.info() != Eigen::Success) {
+        std::cerr << "Eigen decomposition failed\n";
+    }
+    int e = 0;
+    while(u(e) < 0){ //it is a negative eigenvalue
+        ++e;
+    }
+    std::cout << YELLOW <<"|neg eigenvalues| = " << e << RESET << std::endl;
+    return e;
+}
 int main(int argc, char** argv) {
     std::string path_file = "foundPath.txt";
     double rod_radius = 0.2;
@@ -60,11 +78,15 @@ int main(int argc, char** argv) {
     //Save first Knot Vars
     auto startKnot = cp.getVars();
 
+    std::vector<Eigen::VectorXd> Knots_with_neg_eigenvalues;
+
     static size_t i = 0;
     //set buttons
     int path_idx = 0;
+    int old_idx = 0;
     bool show_path = false;
     int sleep_mil = 10;
+    double step_size = 0.1;
     Viewer.setUserCallback([&]() {
         ImGui::Begin("Controls");
         ImGui::PushItemWidth(200);
@@ -78,11 +100,25 @@ int main(int argc, char** argv) {
         if (ImGui::Button("+")) path_idx++;
 
         path_idx = std::clamp(path_idx, 0, (int)path.size()-1);
-        if(!show_path) Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
+        if(!show_path && path_idx != old_idx){
+            Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
+            cp.setVars(path[path_idx]);
+            std::cout <<GREEN "path id: " << path_idx << RESET<< std::endl;
+            printNumNegEigenvalues(cp);
+            old_idx = path_idx;
+        } 
 
         ImGui::InputInt("sleep between frame", &sleep_mil);
+        ImGui::InputDouble("step size", &step_size);
         if(ImGui::Button("show interpolated path")){
             show_path=true;
+        }
+        if(ImGui::Button("Calk Num neg Eigenvalues")){
+            cp.setVars(path[path_idx]);
+            printNumNegEigenvalues(cp);
+        }
+        if(ImGui::Button("Save all Knots with neg eigenvalue")){
+            savePathTxt("negativeEigenvalues.txt",Knots_with_neg_eigenvalues);
         }
         ImGui::End();   
 
@@ -95,16 +131,23 @@ int main(int argc, char** argv) {
                 Eigen::VectorXd direction = path[i+1] - path[i];
                 direction.normalize();
                 auto current = path[i];
-                while((current - path[i+1]).norm()> 0.1){
-                    current += 0.1*direction;
+                while((current - path[i+1]).norm()> step_size){
+                    current += step_size*direction;
                     cp.setVars(current);
                     std::cout       << std::endl << std::endl
                                 << BLUE << "It: " << i << RESET
                                 << ", current Energy: " << cp.energy() 
                                 << GREEN << ", contact Energy: " << cp.contactEnergy() << RESET
                                 << ", Gradient: " << cp.gradient().norm()
-                                << ", Position: " << cp.getVars().norm() 
+                                << ", Position: " << cp.getVars().head(3*n_pts).norm()
+                                << ", Twist: " << cp.getVars().tail(3*n_pts).norm()
                                 << std::endl;
+
+                    if(printNumNegEigenvalues(cp)>0){
+                        Knots_with_neg_eigenvalues.push_back(current);
+                    }
+                    
+
 
                     if(cp.contactEnergy() > 1000){
                         std::cout << RED << "possible selfintersection at " << i << std::endl;

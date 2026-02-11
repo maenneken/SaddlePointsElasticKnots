@@ -1,5 +1,15 @@
 #include "NEB.h"
 
+Eigen::MatrixXd listToMatrix(std::vector<Eigen::VectorXd> vecs){
+    size_t N = vecs.size();
+    size_t d = vecs[0].size();
+
+    Eigen::MatrixXd M(N, d);
+    for (size_t i = 0; i < N; ++i) {
+        M.row(i) = vecs[i].transpose();
+    }
+    return M;
+}
 Eigen::VectorXd tangent(Eigen::VectorXd R_pre, Eigen::VectorXd R_next){
     Eigen::VectorXd t = R_next - R_pre;
     t.normalize();
@@ -33,7 +43,56 @@ void nebGradientStep(ContactProblem& cp, std::vector<Eigen::VectorXd>& path, dou
         path[i] += step_size * F_neb;
     }
 }
+void globalNebGradientStep(
+    Eigen::MatrixXd& gradient,  // N x D
+    Eigen::MatrixXd& path,      // N x D
+    double spring_constant,
+    double step_size)
+{
+    int N = path.rows();
 
+    // ---- Tangents ----
+    Eigen::MatrixXd tangents = path.bottomRows(N-2) - path.topRows(N-2);
+    for (int i = 0; i < tangents.rows(); ++i)
+        tangents.row(i).normalize();
+
+    // ---- Spring force ----
+    Eigen::MatrixXd d_forward = path.middleRows(2, N-2) 
+                              - path.middleRows(1, N-2);
+
+    Eigen::MatrixXd d_backward = path.middleRows(1, N-2) 
+                               - path.middleRows(0, N-2);
+
+    Eigen::VectorXd len_f = d_forward.rowwise().norm();
+    Eigen::VectorXd len_b = d_backward.rowwise().norm();
+
+    Eigen::VectorXd delta = spring_constant * (len_f - len_b);
+    Eigen::MatrixXd F_spring = delta.asDiagonal() * tangents;
+
+    // ---- Perpendicular force ----
+    Eigen::MatrixXd grad_mid = gradient.middleRows(1, N-2);
+    Eigen::VectorXd proj = (grad_mid.cwiseProduct(tangents)).rowwise().sum();
+    Eigen::MatrixXd F_perp = -grad_mid + proj.asDiagonal() * tangents;
+
+    // ---- Total NEB force ----
+    Eigen::MatrixXd F_neb = F_spring + F_perp;
+
+    // ---- Update path ----
+    path.middleRows(1, N-2) += step_size * F_neb;
+}
+void fitt_globalNebGradientStep(ContactProblem& cp, std::vector<Eigen::VectorXd>& path, double spring_constant, double step_size){
+    Eigen::MatrixXd pathMatrix = listToMatrix(path);
+    Eigen::MatrixXd gradientMatrix(path.size(), path[0].size());
+    for (size_t i = 0; i < path.size();++i){
+        cp.setVars(path[i]);
+        gradientMatrix.row(i) = cp.gradient().transpose(); 
+    }
+    globalNebGradientStep(gradientMatrix,pathMatrix,spring_constant,step_size);
+
+    for (size_t i = 0; i < path.size();++i){
+        path[i]= pathMatrix.row(i).transpose();
+    }
+}
 //TODO Global L-BFGS look at paper
 //R_j+1 = R_j + F_j*H_j^−1
 //R_j is the whole path, F_j are all forces H_j are all Hessians of the path
