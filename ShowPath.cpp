@@ -103,7 +103,13 @@ int main(int argc, char** argv) {
         if(!show_path && path_idx != old_idx){
             Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
             cp.setVars(path[path_idx]);
-            std::cout <<GREEN "path id: " << path_idx << RESET<< std::endl;
+            std::cout           <<BLUE "path id: " << path_idx << RESET
+                                << ", current Energy: " << cp.energy() 
+                                << ", contact Energy: " << cp.contactEnergy() 
+                                << GREEN << ", Gradient: " << cp.gradient().norm() << RESET
+                                << ", Position: " << cp.getVars().head(3*n_pts).norm()
+                                << ", Twist: " << cp.getVars().tail(3*n_pts).norm()<< std::endl;
+
             printNumNegEigenvalues(cp);
             old_idx = path_idx;
         } 

@@ -3,10 +3,21 @@
 #include <thread>   // for std::this_thread::sleep_for
 #include <chrono>   // for std::chrono::milliseconds
 
-
+size_t find_max_energy(ContactProblem& cp, std::vector<Eigen::VectorXd> path){
+    size_t max_id = 0;
+    double max_energy = 0;
+    for (size_t i = 0; i < path.size();++i){
+        cp.setVars(path[i]);
+        if(cp.energy()> max_energy){
+            max_id = i;
+            max_energy = cp.energy();
+        }
+    }
+    return max_id;
+}
 
 int main(int argc, char** argv) {
-       std::string path_file = "foundPath.txt";
+    std::string path_file = "foundPath.txt";
     double rod_radius = 0.2;
     bool hasCollisions = true;
     int contactStiffness = 10000;
@@ -26,6 +37,7 @@ int main(int argc, char** argv) {
         0.3,      // Poisson's ratio
         params
     );
+    //read path from file
     std::vector<Eigen::VectorXd> path = loadPathTxt(path_file);
 
     int n_pts = path[0].size()/4; 
@@ -68,7 +80,7 @@ int main(int argc, char** argv) {
     compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions); 
     Eigen::VectorXd start =  cp.m_rods.getDoFs();
 
-     std::cout << "Compute true goal min" << std::endl;
+    std::cout << "Compute true goal min" << std::endl;
     cp.setVars(path[path.size()-1]);
     compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions); 
     Eigen::VectorXd goal =  cp.m_rods.getDoFs();
@@ -105,9 +117,13 @@ int main(int argc, char** argv) {
     int path_idx = 0;
     int old_idx = 0;
     bool globalNebGradient = false;
+    bool climbingImage = true;
+
+    //find id of max energy in path
+    size_t max_id = find_max_energy(cp,path);
+    std::cout << RED << "Max Energy at: " << max_id << RESET << std::endl; 
 
 
-   
     bool running = false;
     bool show_path = false;
     size_t it = 0;
@@ -123,10 +139,13 @@ int main(int argc, char** argv) {
         ImGui::SliderInt("path_idx", &path_idx, 0, path.size()-1);
         path_idx = std::clamp(path_idx, 0, (int)path.size()-1);
         if(!show_path && old_idx != path_idx) {
+            cp.setVars(path[path_idx]);
             Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
+            Viewer.showNodeGradient(DoFsToPos(cp.gradient(), n_pts));
             old_idx = path_idx;
         }
         ImGui::Checkbox("Global NEB Gradient", &globalNebGradient);
+        ImGui::Checkbox("Use climbing Image", &climbingImage);
 
 
         if (ImGui::Button("Optimize Path")) {
@@ -160,7 +179,13 @@ int main(int argc, char** argv) {
 
                 globalNebGradientStep(gradientMatrix,pathMatrix,spring_constant,stepsize);
 
-            } else {
+            } 
+            else if (climbingImage)
+            {
+                ciNebGradientStep(cp,path,spring_constant,stepsize, max_id);
+            }
+            
+            else{
                 //for local step of 0.01 works great
                 nebGradientStep(cp,path,spring_constant,stepsize);
             }
@@ -181,11 +206,12 @@ int main(int argc, char** argv) {
                 //print Energy...
                 cp.setVars(path[path_idx]);
                 Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
+                Viewer.showNodeGradient(DoFsToPos(cp.gradient(), n_pts));
                 std::cout       << std::endl << std::endl
                                 << BLUE << "It: " << it << RESET
                                 << ", current Energy: " << cp.energy() 
-                                << GREEN << ", contact Energy: " << cp.contactEnergy() << RESET
-                                << ", Gradient: " << cp.gradient().norm()
+                                <<", contact Energy: " << cp.contactEnergy()
+                                << GREEN << ", Gradient: " << cp.gradient().norm() <<RESET
                                 << ", Position: " << cp.getVars().head(3*n_pts).norm()
                                 << ", Twist: " << cp.getVars().tail(3*n_pts).norm()
                                 << std::endl;
