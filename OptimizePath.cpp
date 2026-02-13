@@ -67,24 +67,40 @@ int main(int argc, char** argv) {
 
     //Set Visulizer 
     KnotVisualizer Viewer = KnotVisualizer();
-    Viewer.setKnot(centerline,0.01 * rod_radius);
+    Viewer.setKnot(centerline,0.01 * rod_radius); 
 
-    
+    //energy is is not consistent after storing and reaplying vars
+    /*
     //relax ends of path and add them
     auto optimizerOptions = NewtonOptimizerOptions();
     optimizerOptions.niter = 10000;
-    optimizerOptions.gradTol = 1e-6;
+    optimizerOptions.gradTol =  1e-6;
 
     std::cout << "Compute true start min" << std::endl;
     cp.setVars(path[0]);
-    compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions); 
-    Eigen::VectorXd start =  cp.m_rods.getDoFs();
+    compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions);
+    //needed otherwise Vars are wrong 
+    cp.updateCachedVars();
+    std::cout << GREEN << "Start Gradient: " << cp.gradient().norm() <<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy() <<RESET<<std::endl;
+    Eigen::VectorXd start =  cp.getVars();
+
 
     std::cout << "Compute true goal min" << std::endl;
     cp.setVars(path[path.size()-1]);
     compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions); 
-    Eigen::VectorXd goal =  cp.m_rods.getDoFs();
+    cp.updateCachedVars();
+    std::cout << GREEN << "Goal Gradient: " << cp.gradient().norm() <<" Energy: " << cp.energy()<<" contact Energy: " << cp.contactEnergy() <<RESET<<std::endl;
+    Eigen::VectorXd goal =  cp.getVars();
 
+    //saving and then cp.setVars() changes gradient and energy
+    cp.setVars(start);
+    std::cout << GREEN << "Start Gradient after Calling it again: " << cp.gradient().norm()<<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy()<<RESET<<std::endl;
+    cp.setVars(goal);
+    std::cout << GREEN << "Goal Gradient after Calling it again " << cp.gradient().norm() <<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy()<<RESET<<std::endl;
+
+    cp.setVars(path[7]);
+    std::cout << RED << "Difference between cp.gradient() and cp.gradient(true): "<<(cp.gradient() -  cp.gradient(true)).norm() << RESET << std::endl;
+    
     //recenter data. otherwise the knot is shifted in 3d space
     Eigen::Vector3d start_centroid(0,0,0);
     Eigen::Vector3d goal_centroid(0,0,0);
@@ -100,12 +116,25 @@ int main(int argc, char** argv) {
         start.segment<3>(3*i) -= start_centroid;
         goal.segment<3>(3*i) -= goal_centroid;
     }
-
-
+    cp.setVars(start);
+    std::cout << GREEN << "Start Gradient after Centering: " << cp.gradient().norm()<<" Energy: " << cp.energy() <<RESET<<std::endl;
+    cp.setVars(goal);
+    std::cout << GREEN << "Goal Gradient after Centering: " << cp.gradient().norm() <<" Energy: " << cp.energy()<<RESET<<std::endl;
     
+
     //put the true mins in the path
     path.emplace_back(goal);
     path.insert(path.begin(), start);
+    */
+
+
+    //minimize twist
+    /*
+    for (size_t i = 0; i<path.size(); ++i){
+        cp.setVars(path[i]);
+        minimize_twist(*cp.m_rods.getRod(0));
+    }
+    */
 
     //matricies of path and its gradient
     Eigen::MatrixXd pathMatrix = listToMatrix(path);
@@ -141,7 +170,7 @@ int main(int argc, char** argv) {
         if(!show_path && old_idx != path_idx) {
             cp.setVars(path[path_idx]);
             Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
-            Viewer.showNodeGradient(DoFsToPos(cp.gradient(), n_pts));
+            Viewer.showNodeGradient(DoFsToPos(cp.gradient(true), n_pts));
             old_idx = path_idx;
         }
         ImGui::Checkbox("Global NEB Gradient", &globalNebGradient);
@@ -174,7 +203,7 @@ int main(int argc, char** argv) {
                 //update gradient Matrix
                 for (size_t i = 0; i < path.size();++i){
                 cp.setVars(path[i]);
-                gradientMatrix.row(i) = cp.gradient().transpose(); 
+                gradientMatrix.row(i) = cp.gradient(true).transpose(); 
                 }
 
                 globalNebGradientStep(gradientMatrix,pathMatrix,spring_constant,stepsize);
@@ -190,10 +219,18 @@ int main(int argc, char** argv) {
                 nebGradientStep(cp,path,spring_constant,stepsize);
             }
             
-            
+            //do gradient decend on ends
+            //start Knot
+            cp.setVars(path[0]);
+            path[0] -= stepsize * cp.gradient(true);
+
+            //goal Knot
+            cp.setVars(path[path.size()-1]);
+            path[path.size()-1] -= stepsize * cp.gradient(true);
+    
 
             ++it;
-            if(it % 50 == 0){
+            if(it % 100 == 0){
 
                 //update path list
                 if(globalNebGradient){
@@ -206,14 +243,14 @@ int main(int argc, char** argv) {
                 //print Energy...
                 cp.setVars(path[path_idx]);
                 Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
-                Viewer.showNodeGradient(DoFsToPos(cp.gradient(), n_pts));
+                Viewer.showNodeGradient(DoFsToPos(cp.gradient(true), n_pts));
                 std::cout       << std::endl << std::endl
                                 << BLUE << "It: " << it << RESET
                                 << ", current Energy: " << cp.energy() 
                                 <<", contact Energy: " << cp.contactEnergy()
                                 << GREEN << ", Gradient: " << cp.gradient().norm() <<RESET
                                 << ", Position: " << cp.getVars().head(3*n_pts).norm()
-                                << ", Twist: " << cp.getVars().tail(3*n_pts).norm()
+                                << ", Twist: " << cp.getVars().tail(n_pts +1).norm()
                                 << std::endl;
 
             }

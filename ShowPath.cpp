@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
                                 << ", contact Energy: " << cp.contactEnergy() 
                                 << GREEN << ", Gradient: " << cp.gradient().norm() << RESET
                                 << ", Position: " << cp.getVars().head(3*n_pts).norm()
-                                << ", Twist: " << cp.getVars().tail(3*n_pts).norm()<< std::endl;
+                                << ", Twist: " << cp.getVars().tail(n_pts+1).norm()<< std::endl;
 
             printNumNegEigenvalues(cp);
             old_idx = path_idx;
@@ -146,7 +146,7 @@ int main(int argc, char** argv) {
                                 << GREEN << ", contact Energy: " << cp.contactEnergy() << RESET
                                 << ", Gradient: " << cp.gradient().norm()
                                 << ", Position: " << cp.getVars().head(3*n_pts).norm()
-                                << ", Twist: " << cp.getVars().tail(3*n_pts).norm()
+                                << ", Twist: " << cp.getVars().tail(n_pts+1).norm()
                                 << std::endl;
 
                     if(printNumNegEigenvalues(cp)>0){

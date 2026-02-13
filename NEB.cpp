@@ -44,7 +44,7 @@ void nebGradientStep(ContactProblem& cp, std::vector<Eigen::VectorXd>& path, dou
         Eigen::VectorXd R       = path[i];
         Eigen::VectorXd R_next   = path[i+1];
         cp.setVars(R);
-        Eigen::VectorXd d_R = cp.gradient();
+        Eigen::VectorXd d_R = cp.gradient(true);
         Eigen::VectorXd F_neb = nebForce(spring_constant,d_R,R_pre,R,R_next);
         path[i] += step_size * F_neb;
     }
@@ -57,7 +57,7 @@ void ciNebGradientStep(ContactProblem& cp, std::vector<Eigen::VectorXd>& path, d
         Eigen::VectorXd R       = path[i];
         Eigen::VectorXd R_next   = path[i+1];
         cp.setVars(R);
-        Eigen::VectorXd d_R = cp.gradient();
+        Eigen::VectorXd d_R = cp.gradient(true);
 
 
         //we are at image with highest Energy -> go towards Saddle
