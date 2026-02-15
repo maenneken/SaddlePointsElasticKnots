@@ -69,6 +69,7 @@ int main(int argc, char** argv) {
     KnotVisualizer Viewer = KnotVisualizer();
     Viewer.setKnot(centerline,0.01 * rod_radius); 
 
+
     //energy is is not consistent after storing and reaplying vars
     /*
     //relax ends of path and add them
@@ -78,25 +79,30 @@ int main(int argc, char** argv) {
 
     std::cout << "Compute true start min" << std::endl;
     cp.setVars(path[0]);
+    
     compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions);
+
     //needed otherwise Vars are wrong 
     cp.updateCachedVars();
-    std::cout << GREEN << "Start Gradient: " << cp.gradient().norm() <<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy() <<RESET<<std::endl;
+    std::cout << GREEN << "Start Gradient: " << cp.gradient().norm() <<RESET<<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy() <<std::endl;
     Eigen::VectorXd start =  cp.getVars();
 
 
     std::cout << "Compute true goal min" << std::endl;
     cp.setVars(path[path.size()-1]);
     compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions); 
+
+
     cp.updateCachedVars();
-    std::cout << GREEN << "Goal Gradient: " << cp.gradient().norm() <<" Energy: " << cp.energy()<<" contact Energy: " << cp.contactEnergy() <<RESET<<std::endl;
+    std::cout << GREEN << "Goal Gradient: " << cp.gradient().norm()<<RESET <<" Energy: " << cp.energy()<<" contact Energy: " << cp.contactEnergy() <<std::endl;
     Eigen::VectorXd goal =  cp.getVars();
+
 
     //saving and then cp.setVars() changes gradient and energy
     cp.setVars(start);
-    std::cout << GREEN << "Start Gradient after Calling it again: " << cp.gradient().norm()<<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy()<<RESET<<std::endl;
+    std::cout << GREEN << "Start Gradient after Calling it again: " << cp.gradient().norm()<<RESET<<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy()<<std::endl;
     cp.setVars(goal);
-    std::cout << GREEN << "Goal Gradient after Calling it again " << cp.gradient().norm() <<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy()<<RESET<<std::endl;
+    std::cout << GREEN << "Goal Gradient after Calling it again " << cp.gradient().norm()<<RESET <<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy()<<std::endl;
 
     cp.setVars(path[7]);
     std::cout << RED << "Difference between cp.gradient() and cp.gradient(true): "<<(cp.gradient() -  cp.gradient(true)).norm() << RESET << std::endl;
@@ -117,8 +123,10 @@ int main(int argc, char** argv) {
         goal.segment<3>(3*i) -= goal_centroid;
     }
     cp.setVars(start);
+    cp.updateCachedVars();
     std::cout << GREEN << "Start Gradient after Centering: " << cp.gradient().norm()<<" Energy: " << cp.energy() <<RESET<<std::endl;
     cp.setVars(goal);
+    cp.updateCachedVars();
     std::cout << GREEN << "Goal Gradient after Centering: " << cp.gradient().norm() <<" Energy: " << cp.energy()<<RESET<<std::endl;
     
 
