@@ -3,6 +3,7 @@
 
 #include "helpers.h"
 #include "KnotVisualizer.h"
+#include "KnotResolution.h"
 
 int printNumNegEigenvalues(ContactProblem& cp){
     //look at eigenvalues
@@ -28,12 +29,15 @@ int main(int argc, char** argv) {
     double rod_radius = 0.2;
     bool hasCollisions = true;
     int contactStiffness = 10000;
+    int resolutionDoubleFactor = 0;
 
     // Parse command line arguments
     if (argc >= 2) {
         path_file = argv[1];
     }
-    
+    if (argc >= 3){
+        resolutionDoubleFactor = std::stod(argv[2]);
+    }
 
     std::vector<double> params = {rod_radius, rod_radius};
 
@@ -46,7 +50,27 @@ int main(int argc, char** argv) {
     );
     std::vector<Eigen::VectorXd> path = loadPathTxt(path_file);
 
+    //we want to increase the resolution of the path
+    if(resolutionDoubleFactor >0){
+        //double the resolution
+        std::vector<Eigen::VectorXd> doublePath;
+        doublePath.reserve(path.size());
+        for(int i = 0; i< resolutionDoubleFactor; ++i){
+            //for every image in the path
+            for(size_t j = 0; j < path.size(); ++j){
+                doublePath.emplace_back(doubleKnotResolution(path[j]));
+            }
+             // update path for next iteration
+            path = std::move(doublePath);
+        }
+       
+    }
+
     int n_pts = path[0].size()/4; 
+
+
+
+
     // Read centerline nodes
     std::vector<Eigen::Vector3d> centerline = DoFsToPos(path[0],n_pts);
 
@@ -125,6 +149,9 @@ int main(int argc, char** argv) {
         }
         if(ImGui::Button("Save all Knots with neg eigenvalue")){
             savePathTxt("negativeEigenvalues.txt",Knots_with_neg_eigenvalues);
+        }
+        if(ImGui::Button("Save Path")){
+            savePathTxt("SavedPath.txt",path);
         }
         ImGui::End();   
 

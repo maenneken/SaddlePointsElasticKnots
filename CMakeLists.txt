@@ -184,6 +184,7 @@ add_executable(ShowPath
     ShowPath.cpp
     helpers.cpp
     KnotVisualizer.cpp
+    KnotResolution.cpp
 )
 
 add_executable(OptimizePath

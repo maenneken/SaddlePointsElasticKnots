@@ -40,6 +40,8 @@ int main(int argc, char** argv) {
     //read path from file
     std::vector<Eigen::VectorXd> path = loadPathTxt(path_file);
 
+
+
     int n_pts = path[0].size()/4; 
     // Read centerline nodes
     std::vector<Eigen::Vector3d> centerline = DoFsToPos(path[0],n_pts);
@@ -160,6 +162,13 @@ int main(int argc, char** argv) {
     size_t max_id = find_max_energy(cp,path);
     std::cout << RED << "Max Energy at: " << max_id << RESET << std::endl; 
 
+    //Force Vector for visualistation
+    std::vector<Eigen::VectorXd> F_neb;
+    F_neb.resize(path.size(), Eigen::VectorXd::Zero(path[0].size()));
+
+    std::vector<Eigen::VectorXd> d_search;
+    d_search.resize(path.size(), Eigen::VectorXd::Zero(path[0].size()));
+
 
     bool running = false;
     bool show_path = false;
@@ -178,7 +187,8 @@ int main(int argc, char** argv) {
         if(!show_path && old_idx != path_idx) {
             cp.setVars(path[path_idx]);
             Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
-            Viewer.showNodeGradient(DoFsToPos(cp.gradient(true), n_pts));
+            Viewer.showNodeGradient(DoFsToPos(-cp.gradient(true), n_pts));
+            Viewer.showNodeGradientModified(DoFsToPos(F_neb[path_idx], n_pts));
             old_idx = path_idx;
         }
         ImGui::Checkbox("Global NEB Gradient", &globalNebGradient);
@@ -209,9 +219,10 @@ int main(int argc, char** argv) {
             //global seems to want smaller step size (0.001 and smaller)
             if(globalNebGradient){
                 //update gradient Matrix
+                #pragma omp parallel for
                 for (size_t i = 0; i < path.size();++i){
-                cp.setVars(path[i]);
-                gradientMatrix.row(i) = cp.gradient(true).transpose(); 
+                    cp.setVars(path[i]);
+                    gradientMatrix.row(i) = cp.gradient(true).transpose(); 
                 }
 
                 globalNebGradientStep(gradientMatrix,pathMatrix,spring_constant,stepsize);
@@ -219,12 +230,13 @@ int main(int argc, char** argv) {
             } 
             else if (climbingImage)
             {
-                ciNebGradientStep(cp,path,spring_constant,stepsize, max_id);
+                ciNebGradientStep(cp,path,F_neb, spring_constant,stepsize, max_id);
             }
             
             else{
                 //for local step of 0.01 works great
-                nebGradientStep(cp,path,spring_constant,stepsize);
+                //nebGradientStep(cp,path,F_neb,spring_constant,stepsize);
+                nebConjugateGradientStep(cp, path, F_neb, d_search, spring_constant,stepsize);
             }
             
             //do gradient decend on ends
@@ -251,14 +263,16 @@ int main(int argc, char** argv) {
                 //print Energy...
                 cp.setVars(path[path_idx]);
                 Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
-                Viewer.showNodeGradient(DoFsToPos(cp.gradient(true), n_pts));
+                Viewer.showNodeGradient(DoFsToPos(-cp.gradient(true), n_pts));
+                Viewer.showNodeGradientModified(DoFsToPos(F_neb[path_idx], n_pts));
                 std::cout       << std::endl << std::endl
                                 << BLUE << "It: " << it << RESET
                                 << ", current Energy: " << cp.energy() 
                                 <<", contact Energy: " << cp.contactEnergy()
-                                << GREEN << ", Gradient: " << cp.gradient().norm() <<RESET
+                                << GREEN << ", Gradient: " << cp.gradient().norm() << RESET
                                 << ", Position: " << cp.getVars().head(3*n_pts).norm()
                                 << ", Twist: " << cp.getVars().tail(n_pts +1).norm()
+                                << YELLOW <<", NEB Force: " << F_neb[path_idx].norm() << RESET
                                 << std::endl;
 
             }
