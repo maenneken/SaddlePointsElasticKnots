@@ -190,13 +190,7 @@ void nebConjugateGradientStep(ContactProblem& cp, std::vector<Eigen::VectorXd>& 
     }
 }
 
-//TODO Global L-BFGS look at paper
-//R_j+1 = R_j + F_j*H_j^−1
-//R_j is the whole path, F_j are all forces H_j are all Hessians of the path
-
-
-
-
+//todo add line search to make it converge faster.
 void globalNebLBFGSStep(ContactProblem& cp, RowMatrix& R, LBGFhistory& history, double spring_constant, bool climbing_image, size_t idx_max, double max_step){
     RowMatrix d_R = gradientMatrix(cp,R);
     RowMatrix F_mat = globalNEBForce(d_R,R,spring_constant,climbing_image,idx_max);
@@ -248,7 +242,7 @@ void globalNebLBFGSStep(ContactProblem& cp, RowMatrix& R, LBGFhistory& history, 
 
     Eigen::VectorXd R_old = R_vec;
 
-     
+    //todo instead of claming step, calk best stpe size
     R_vec += step;
 
 

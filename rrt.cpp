@@ -269,7 +269,8 @@ std::vector<Eigen::VectorXd> RRT::createPath(Eigen::VectorXd connection){
     return full_path;
 
 }
-
+//todo remove viewer
+//todo add findConstraintPathStep to use the viewer in a seperate file.
 std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t iterations, KnotVisualizer& Viewer){
     std::vector<Eigen::VectorXd> path;
     std::array<std::vector<rrt_vertex>*, 2> trees = { &start_tree, &goal_tree };

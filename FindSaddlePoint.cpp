@@ -115,15 +115,15 @@ HessianAndGradient reflectGradientandHessian(Eigen::VectorXd g, Eigen::MatrixXd 
 Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleType, bool useTwist, double etol, bool clampedEnds, bool flipAllNegEig){
 
     auto R = cp.getVars();
-    auto g = cp.gradient();
+    auto g = cp.gradient(true);
     auto H_sparse = computeHessian(cp);
-
+    /*
     auto H_dist = distanceHessian(R,distEnergy_minSeperation);
     auto g_dist = distanceGradient(R,distEnergy_minSeperation);
 
     g += distEnergy_weight * g_dist;
     H_sparse += distEnergy_weight * H_dist;
-
+    */
 
     Eigen::MatrixXd H_dense = Eigen::MatrixXd(H_sparse);
     Eigen::VectorXd g_new;
@@ -139,7 +139,7 @@ Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleTyp
         //remove it for correct reflection calk
         HessianAndGradient Hg = makeSmaller(H_dense, g, g.size() -1);
         Eigen::VectorXd g_new_small = reflectGradient(Hg.g, Hg.H,saddleType,etol,flipAllNegEig);
-        
+        g_new = g;
         g_new.head(g.size()-1) = g_new_small;
         g_new(g.size()-1) = 0; //keep theta constant
 
@@ -158,14 +158,17 @@ Eigen::VectorXd stepTowardsSaddle(ContactProblem& cp, double step, int saddleTyp
 Eigen::VectorXd stepTowardsSaddleNewton(ContactProblem& cp, double step, int saddleType, bool useTwist, double etol, bool clampedEnds, bool flipAllNegEig){
 
     auto R = cp.getVars();
-    auto g = cp.gradient();
+    auto g = cp.gradient(true);
     auto H_sparse = computeHessian(cp);
 
+    //dist Energy is not helpfull
+    /* 
     auto H_dist = distanceHessian(R,distEnergy_minSeperation);
     auto g_dist = distanceGradient(R,distEnergy_minSeperation);
 
     g += distEnergy_weight * g_dist;
     H_sparse += distEnergy_weight * H_dist;
+    */
 
     Eigen::MatrixXd H_dense = Eigen::MatrixXd(H_sparse);
     Eigen::VectorXd g_new;
@@ -212,23 +215,16 @@ Eigen::VectorXd stepTowardsSaddleNewton(ContactProblem& cp, double step, int sad
 
 }
 int main(int argc, char** argv) {
-    std::string file = "../data/NoCollision/reduced0033.obj";
+    std::string path_file = "foundPath.txt";
     double rod_radius = 0.2;
-    int reductionFactor = 4;
     bool hasCollisions = true;
     int contactStiffness = 10000;
 
     // Parse command line arguments
     if (argc >= 2) {
-        file = argv[1];
+        path_file = argv[1];
     }
-    if (argc >= 3) {
-        reductionFactor = std::stod(argv[2]);
-    }
-    if (reductionFactor < 1){
-        reductionFactor = 1;
-    }
-
+    
 
     std::vector<double> params = {rod_radius, rod_radius};
 
@@ -239,11 +235,14 @@ int main(int argc, char** argv) {
         0.3,      // Poisson's ratio
         params
     );
+    //read path from file
+    std::vector<Eigen::VectorXd> path = loadPathTxt(path_file);
 
+
+
+    int n_pts = path[0].size()/4; 
     // Read centerline nodes
-    std::vector<Eigen::Vector3d> centerline = reduce_knot_resolution(read_nodes_from_file(file), reductionFactor);
-
-    int n_pts = centerline.size();  
+    std::vector<Eigen::Vector3d> centerline = DoFsToPos(path[0],n_pts);
 
     PeriodicRod pr = define_periodic_rod(centerline,material);
 
@@ -282,11 +281,10 @@ int main(int argc, char** argv) {
     static bool clampedEnds = true;
     static bool flipAllNegEig = false;
     static size_t i = 0;
+    int path_idx = 0;
+    int old_idx = 0;
     //set buttons
     Viewer.setUserCallback([&]() {
-        //todo add new Energy based on different distance fkt to add information. ex: 1/(d²+1) or something with e^x
-        //todo add option for distance fkt where you can decide how many neighbors are included in the calkulation (direct neighbors might not be important to know where they are)
-        //todo add gradient and Hessian of the energy fkt
         //Idea is to find negative Eigenvalues
         //todo add controls to load a Knot and set up a contactproblem with all options
         //todo instead of converting to sparse and dense and back use dense.
@@ -302,6 +300,16 @@ int main(int argc, char** argv) {
         ImGui::Checkbox("Use Twist", &useTwist);
         ImGui::Checkbox("Clamped Ends", &clampedEnds);
         ImGui::Checkbox("Reflect all negative Eigenvalues", &flipAllNegEig);
+
+        ImGui::SliderInt("path_idx", &path_idx, 0, path.size()-1);
+        path_idx = std::clamp(path_idx, 0, (int)path.size()-1);
+        if(old_idx != path_idx) {
+            cp.setVars(path[path_idx]);
+            Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
+            Viewer.showNodeGradient(DoFsToPos(-cp.gradient(true), n_pts));
+            old_idx = path_idx;
+        }
+
         if (ImGui::Button("Find Saddle")) {
             running = true;
             i = 0;                           
@@ -353,11 +361,6 @@ int main(int argc, char** argv) {
                                 << std::endl << std::endl;
 
             }
-            /** 
-            if(i % 1000 == 0){
-                std::cout << g_old - g_new << std::endl << std::endl;
-            }
-            */
             i++;
         }
         if(i > iterations){
