@@ -6,45 +6,6 @@
 
 
 
-// rotate right by 1
-inline void rotateRight(std::vector<Eigen::Vector3d>& v) {
-    if (v.size() < 2) return;
-    std::rotate(v.rbegin(), v.rbegin() + 1, v.rend());
-}
-
-// L2 distance between two knots
-double knotDistance(const std::vector<Eigen::Vector3d>& a,
-                    const std::vector<Eigen::Vector3d>& b)
-{
-    double sum = 0.0;
-    for (size_t i = 0; i < a.size(); ++i)
-        sum += (a[i] - b[i]).squaredNorm();
-    return std::sqrt(sum);
-}
-
-// rotates goal knot to minimal distance to start
-std::vector<Eigen::Vector3d> rotateKnotTillMinDist(const std::vector<Eigen::Vector3d>& start,
-                      const std::vector<Eigen::Vector3d>& goal)
-{
-    assert(start.size() == goal.size());
-
-    double minDist = knotDistance(start, goal);
-    std::vector<Eigen::Vector3d> goal_minDist = goal;
-    std::vector<Eigen::Vector3d> v_tmp = goal;
-
-    for (size_t i = 0; i < start.size(); ++i) {
-        rotateRight(v_tmp);
-
-        double dist = knotDistance(start, v_tmp);
-        if (dist < minDist) {
-            minDist = dist;
-            goal_minDist = v_tmp;
-        }
-    }
-
-    return goal_minDist;
-}
-
 
 int main(int argc, char** argv) {
     //std::string start_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0001.obj";
@@ -84,8 +45,6 @@ int main(int argc, char** argv) {
     std::vector<Eigen::Vector3d> start_centerline = reduce_knot_resolution(read_nodes_from_file(start_file), reductionFactor);
     std::vector<Eigen::Vector3d> goal_centerline = reduce_knot_resolution(read_nodes_from_file(goal_file), reductionFactor);
 
-    //rotate goal to minimize distance
-    //goal_centerline = rotateKnotTillMinDist(start_centerline, goal_centerline);
 
     int n_pts = start_centerline.size();  
 
@@ -119,10 +78,11 @@ int main(int argc, char** argv) {
     // 6. Create contact problem
     ContactProblem cp(rod_list, problemOptions);
 
-
-    std::cout << "Start contact Energy: " << cp.energy()<< std::endl;
+    double start_energy = cp.contactEnergy();
+    std::cout << "Start contact Energy: " << cp.contactEnergy()<< std::endl;
     cp.setVars(goal_dofs);
-    std::cout << "Goal contact Energy: " << cp.energy()<< std::endl;
+    double goal_energy = cp.contactEnergy();
+    std::cout << "Goal contact Energy: " << cp.contactEnergy()<< std::endl;
 
     double edgeLength = (start_dofs.segment<3>(0) - start_dofs.segment<3>(3)).norm();
     std::cout << "Start Knot Edge length: " << edgeLength <<std::endl;
@@ -143,9 +103,9 @@ int main(int argc, char** argv) {
     //Save first Knot Vars
     auto startKnot = cp.getVars();
 
-    static int iterations = 1000;
+    static int iterations = 5000;
     static int pruningInterval = 1000;
-    static double maxEnergy = 10;
+    static double maxEnergy = std::max({start_energy,goal_energy})*2 +1;
     static double stepsize = 1;
     static double steplength = 10;
     static double goalBias = 0.2;

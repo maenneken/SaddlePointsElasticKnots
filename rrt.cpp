@@ -20,18 +20,24 @@ double uniform01() {
     static std::uniform_real_distribution<double> dist(0.0, 1.0); // 0 ≤ x < 1
     return dist(rng);
 }
-Eigen::VectorXd gaussianVector(size_t n, double sigma) {
-    static std::mt19937 rng(std::random_device{}());
-    std::normal_distribution<double> dist(0.0, sigma);
-
-    Eigen::VectorXd v(n);
-    for (size_t i = 0; i < n; ++i)
-        v[i] = dist(rng);
-
-    return v;
+Eigen::VectorXd reversePosIndicies(const Eigen::VectorXd& dofs){
+    size_t n_pts = dofs.size()/4;
+    Eigen::VectorXd reversed = Eigen::VectorXd::Zero(dofs.size());
+    for ( size_t i = 0; i < n_pts; ++i){
+        size_t j = n_pts - 1 - i;
+        reversed.segment<3>(3*i) = dofs.segment<3>(3*j);
+    }
+    return reversed;
 }
-
-
+Eigen::VectorXd shiftPosIndcies(const Eigen::VectorXd& dofs){
+    size_t n_pts = dofs.size()/4;
+    Eigen::VectorXd shifted = Eigen::VectorXd::Zero(dofs.size());
+    for ( size_t i = 0; i < n_pts; ++i){
+        size_t i1 = (i+1) % n_pts;
+        shifted.segment<3>(3*i) = dofs.segment<3>(3*i1);
+    }
+    return shifted;
+}
 RRT::RRT(const Eigen::VectorXd& start,
          const Eigen::VectorXd& goal,
          double maxEnergy,
@@ -41,6 +47,7 @@ RRT::RRT(const Eigen::VectorXd& start,
          size_t pruningInterval,
          bool oneRandDirection,
          double constraintStiffness){
+
     assert(start.size() == goal.size() && "start and goal must have same dimension");
     assert(maxEnergy > 0 && "maxEnergy must be positive");
     assert(stepLength > 0 && "stepLength must be positive");
@@ -50,6 +57,35 @@ RRT::RRT(const Eigen::VectorXd& start,
     rrt_vertex goal_vertex(goal, -1);
     start_tree.emplace_back(start_vertex);
     goal_tree.emplace_back(goal_vertex);
+    
+    //add all permutation of start and goal to the trees
+    size_t n_pts = start.size()/4;
+    for(size_t i = 0; i < n_pts -1; ++i){
+        rrt_vertex current = start_tree.back();
+        rrt_vertex start_shifted(shiftPosIndcies(current.config),-1);
+        start_tree.emplace_back(start_shifted);
+
+        current = goal_tree.back();
+        rrt_vertex goal_shifted(shiftPosIndcies(current.config),-1);
+        goal_tree.emplace_back(goal_shifted);
+    }
+    //now all backwards
+    rrt_vertex start_backwards (reversePosIndicies(start),-1);
+    rrt_vertex goal_backwards ( reversePosIndicies(goal),-1);
+    start_tree.emplace_back(start_backwards);
+    goal_tree.emplace_back(goal_backwards);
+
+    for(size_t i = 0; i < n_pts -1; ++i){
+        rrt_vertex current = start_tree.back();
+        rrt_vertex start_shifted(shiftPosIndcies(current.config),-1);
+        start_tree.emplace_back(start_shifted);
+
+        current = goal_tree.back();
+        rrt_vertex goal_shifted(shiftPosIndcies(current.config),-1);
+        goal_tree.emplace_back(goal_shifted);
+    }
+
+
 
     max_energy = maxEnergy;
     step_length = stepLength;
@@ -122,6 +158,7 @@ Eigen::VectorXd RRT::sampleRandConfig(ContactProblem& cp, const Eigen::VectorXd&
 }
 //Samples a random direction and projects it to presever spring constraint
 //if goal bias direction goes towards goal
+//TODO add goal Bias where we want to expand towards goal but use the knot that is most "effective"
 Eigen::VectorXd RRT::sampleRandDirection(ContactProblem& cp,const Eigen::VectorXd& current_config, const Eigen::VectorXd& goal){
     
     size_t n_pts = 0.75*n_dofs;
@@ -156,20 +193,10 @@ Eigen::VectorXd RRT::sampleRandDirection(ContactProblem& cp,const Eigen::VectorX
     //stretch and bend seem to be enough 
     Eigen::SparseMatrix<double> J = stackJacobians(stretchJacobian(current_config_short),bendJacobian(current_config_short));
     
-    //adding contact or twist does not work.
-    //cp.setVars(current_config);
-    //Eigen::MatrixXd contactForces = cp.contactForces();
-    //J = stackJacobians(J,contactJacobian(contactForces));
-    //J = stackJacobians(J,twistJacobian(current_config_short));
-    //Eigen::VectorXd g = cp.gradient().head(n_pts);
-    //Eigen::SparseMatrix<double> J = gradientJacobian(g);
 
     Eigen::VectorXd projectedDirection = Eigen::VectorXd::Zero(n_dofs);
     projectedDirection.head(n_pts) = projectToTangentSpace(J,randDirection);
 
-    //Eigen::VectorXd randDirection_long = Eigen::VectorXd::Zero(n_dofs);
-    //randDirection_long.head(n_pts) = randDirection;
-    //Eigen::VectorXd projectedDirection_final = (1-constraint_stiffness) * randDirection_long + constraint_stiffness * projectedDirection;
 
     return projectedDirection;
 
@@ -324,7 +351,7 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             }
         } 
         //pruning the tree   
-        if(i % pruning_interval == 0){
+        if(i>0 && i % pruning_interval == 0){
             std::cout << std::endl;
             std::cout << RED <<"Trees are getting pruned" << RESET << std::endl;
             std::cout << "Number of Vertcies befor pruning: "<< BLUE << "start_tree: "  << start_tree.size() << "; goal_tree: " << goal_tree.size() << RESET << std::endl;

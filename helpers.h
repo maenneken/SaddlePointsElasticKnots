@@ -36,7 +36,7 @@ struct HessianAndGradient {
 };
 
 PeriodicRod define_periodic_rod(std::vector<Eigen::Vector3d> pts, RodMaterial material);
-std::vector<Eigen::Vector3d> read_nodes_from_file(std::string &filename);
+std::vector<Eigen::Vector3d> read_nodes_from_file(const std::string &filename);
 std::vector<Eigen::Vector3d> DoFsToPos(Eigen::VectorXd dofs, uint n_pts);
 Eigen::VectorXd DoFsToTwist(Eigen::VectorXd dofs, uint n_pts);
 Eigen::MatrixXd toEigenDense(SuiteSparseMatrix& ssm);

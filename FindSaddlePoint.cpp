@@ -231,7 +231,7 @@ int main(int argc, char** argv) {
     //Create material
     RodMaterial material(
         "ellipse",
-        2000,     // Young's modulus
+        2000000000,     // Young's modulus
         0.3,      // Poisson's ratio
         params
     );

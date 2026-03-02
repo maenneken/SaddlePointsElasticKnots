@@ -194,6 +194,12 @@ add_executable(OptimizePath
     KnotVisualizer.cpp
 )
 
+add_executable(PCA
+    PCA.cpp
+    helpers.cpp
+    KnotVisualizer.cpp
+)
+
 
 
 target_link_libraries(test1 PRIVATE polyscope ElasticKnots)
@@ -202,4 +208,5 @@ target_link_libraries(SmashKnot PRIVATE polyscope ElasticKnots)
 target_link_libraries(FindPath PRIVATE polyscope ElasticKnots)
 target_link_libraries(ShowPath PRIVATE polyscope ElasticKnots)
 target_link_libraries(OptimizePath PRIVATE polyscope ElasticKnots)
+target_link_libraries(PCA PRIVATE polyscope ElasticKnots)
 

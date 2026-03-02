@@ -111,7 +111,7 @@ PeriodicRod define_periodic_rod(std::vector<Eigen::Vector3d> pts, RodMaterial ma
                 nodes.append(np.array(pt))
         return np.array(nodes)
  **/
-std::vector<Eigen::Vector3d> read_nodes_from_file(std::string &filename){
+std::vector<Eigen::Vector3d> read_nodes_from_file(const std::string &filename){
     std::ifstream file(filename);
     if (!file.is_open())
         throw std::runtime_error("Cannot open file: " + filename);
