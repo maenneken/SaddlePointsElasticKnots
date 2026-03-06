@@ -1,41 +1,4 @@
-#include "helpers.h"
-#include <filesystem>
-#include <fstream>
-#include <vector>
-#include <string>
-
-
-//does not work because it will not minmize it
-Eigen::VectorXd generateKnot(ContactProblem& cp, size_t n_dofs){
-    size_t n_pts = n_dofs / 4;
-    Eigen::VectorXd rand = Eigen::VectorXd::Zero(n_dofs);
-    rand.head(3*n_pts) = Eigen::VectorXd::Random(3*n_pts).normalized() * 50;
-    
-    //compute equilibirium of rand
-    auto optimizerOptions = NewtonOptimizerOptions();
-    optimizerOptions.niter = 100;
-    optimizerOptions.gradTol =  1e-6;
-    
-    cp.setVars(rand);
-    
-    compute_equilibrium(cp.m_rods,cp.m_options,optimizerOptions);
-
-    //needed otherwise Vars are wrong 
-    cp.updateCachedVars();
-    std::cout << GREEN << "Gradient: " << cp.gradient().norm() <<RESET<<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy() <<std::endl;
-    Eigen::VectorXd relaxed =  cp.getVars();
-
-    return relaxed;
-}
-std::vector<Eigen::VectorXd> generateKnots(ContactProblem& cp, size_t n, size_t n_dofs){
-    std::vector<Eigen::VectorXd> knots;
-    for(size_t i = 0; i < n; ++i){
-        Eigen::VectorXd knot = generateKnot(cp,n_dofs);
-        knots.emplace_back(knot);
-    }
-    return knots;
-    
-}
+#include "PCA.h"
 
 std::vector<Eigen::VectorXd> loadAllKnots(std::string& folder,RodMaterial material, int reductionFactor)
 {
@@ -115,7 +78,7 @@ std::vector<Eigen::VectorXd> createDataset(std::string folder,  int reductionFac
 
 
     //gradient decend on the knots
-    std::vector<Eigen::VectorXd> relaxed_knots;
+    std::vector<Eigen::VectorXd> relaxedknots;
     for (size_t i = 0; i< cubic_knots.size();++i){
         cp.setVars(cubic_knots[i]);
         std::cout << "relaxing Knot: " << i << std::endl;
@@ -131,28 +94,46 @@ std::vector<Eigen::VectorXd> createDataset(std::string folder,  int reductionFac
     return relaxed_knots;
 }
 
-
-int main(int argc, char** argv) {
-    std::string folder = "../data/CubicLatticeKnots/L100/";
-    int reductionFactor = 4;
-    // Parse command line arguments
-    if (argc >= 2) {
-        folder = argv[1];
+std::vector<Eigen::VectorXd> removeTwist(std::vector<Eigen::VectorXd> &data){
+    size_t n_pts = data[0].size() /4;
+    std::vector<Eigen::VectorXd> noTwist;
+    for(Eigen::VectorXd current : data){
+        noTwist.emplace_back(current.head(3*n_pts));
     }
-    if (argc >= 3) {
-        reductionFactor = std::stod(argv[3]);
-    }
-    if (reductionFactor < 1){
-        reductionFactor = 1;
-    }
-    std::vector<Eigen::VectorXd> knot_list;
-    if(false){
-        knot_list = createDataset(folder, reductionFactor);
-    } else {
-        knot_list = loadPathTxt("../data/PCA/25V_Dataset.txt");
-    }
-
-
-    //center data and remove all twist values -> normalise and put into a matrix
-    return 0;
+    return noTwist;
 }
+Eigen::MatrixXd toMatrix(const std::vector<Eigen::VectorXd>& data)
+{
+    size_t N = data.size();
+    size_t d = data[0].size();
+
+    Eigen::MatrixXd M(N, d);
+
+    for (size_t i = 0; i < N; ++i)
+        M.row(i) = data[i].transpose();
+
+    return M;
+}
+
+
+
+void PCA::fit(const std::vector<Eigen::VectorXd>& samples){
+    Eigen::MatrixXd X = toMatrix(samples);
+
+    mean = X.colwise().mean();
+    Eigen::MatrixXd centered = X.rowwise() - mean;
+
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(
+            centered,
+            Eigen::ComputeThinV
+    );
+
+    components = svd.matrixV();   // all components
+}
+
+Eigen::VectorXd PCA::project(const Eigen::VectorXd& v, int k = 3){
+    Eigen::VectorXd centered = v - mean.transpose();
+    return components.leftCols(k).transpose() * centered;
+}
+
+

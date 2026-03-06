@@ -1,6 +1,6 @@
 #pragma once
 #include "helpers.h"
-#include "KnotVisualizer.h"
+#include "TreeVisualizer.h"
 #include "projectToConstraintSpace.h"
 
 #define RED     "\033[31m"
