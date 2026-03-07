@@ -58,32 +58,32 @@ RRT::RRT(const Eigen::VectorXd& start,
     start_tree.emplace_back(start_vertex);
     goal_tree.emplace_back(goal_vertex);
     
-    //add all permutation of start and goal to the trees
-    size_t n_pts = start.size()/4;
-    for(size_t i = 0; i < n_pts -1; ++i){
-        rrt_vertex current = start_tree.back();
-        rrt_vertex start_shifted(shiftPosIndcies(current.config),-1);
-        start_tree.emplace_back(start_shifted);
+    // //add all permutation of start and goal to the trees
+    // size_t n_pts = start.size()/4;
+    // for(size_t i = 0; i < n_pts -1; ++i){
+    //     rrt_vertex current = start_tree.back();
+    //     rrt_vertex start_shifted(shiftPosIndcies(current.config),-1);
+    //     start_tree.emplace_back(start_shifted);
 
-        current = goal_tree.back();
-        rrt_vertex goal_shifted(shiftPosIndcies(current.config),-1);
-        goal_tree.emplace_back(goal_shifted);
-    }
-    //now all backwards
-    rrt_vertex start_backwards (reversePosIndicies(start),-1);
-    rrt_vertex goal_backwards ( reversePosIndicies(goal),-1);
-    start_tree.emplace_back(start_backwards);
-    goal_tree.emplace_back(goal_backwards);
+    //     current = goal_tree.back();
+    //     rrt_vertex goal_shifted(shiftPosIndcies(current.config),-1);
+    //     goal_tree.emplace_back(goal_shifted);
+    // }
+    // //now all backwards
+    // rrt_vertex start_backwards (reversePosIndicies(start),-1);
+    // rrt_vertex goal_backwards ( reversePosIndicies(goal),-1);
+    // start_tree.emplace_back(start_backwards);
+    // goal_tree.emplace_back(goal_backwards);
 
-    for(size_t i = 0; i < n_pts -1; ++i){
-        rrt_vertex current = start_tree.back();
-        rrt_vertex start_shifted(shiftPosIndcies(current.config),-1);
-        start_tree.emplace_back(start_shifted);
+    // for(size_t i = 0; i < n_pts -1; ++i){
+    //     rrt_vertex current = start_tree.back();
+    //     rrt_vertex start_shifted(shiftPosIndcies(current.config),-1);
+    //     start_tree.emplace_back(start_shifted);
 
-        current = goal_tree.back();
-        rrt_vertex goal_shifted(shiftPosIndcies(current.config),-1);
-        goal_tree.emplace_back(goal_shifted);
-    }
+    //     current = goal_tree.back();
+    //     rrt_vertex goal_shifted(shiftPosIndcies(current.config),-1);
+    //     goal_tree.emplace_back(goal_shifted);
+    // }
 
 
 
@@ -298,7 +298,7 @@ std::vector<Eigen::VectorXd> RRT::createPath(Eigen::VectorXd connection){
 }
 //todo remove viewer
 //todo add findConstraintPathStep to use the viewer in a seperate file.
-std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t iterations, KnotVisualizer& Viewer){
+std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t iterations, TreeVisualizer& Viewer){
     std::vector<Eigen::VectorXd> path;
     std::array<std::vector<rrt_vertex>*, 2> trees = { &start_tree, &goal_tree };
 
@@ -347,6 +347,9 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
                 rrt_vertex other_new_vertex(other_config,nearest_id);
                 (*trees[1-t]).emplace_back(other_new_vertex);
                 nearest = other_config;
+
+                //update Tree 
+                Viewer.setTree(start_tree,goal_tree);
                 return createPath(new_config);
             }
         } 
@@ -375,6 +378,7 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             Viewer.updateKnot(pts); 
             auto direction_to_goal = DoFsToPos(goal_tree[0].config - start_tree[nearest_goal].config,0.25*n_dofs);
             Viewer.showNodeGradient(direction_to_goal);
+            Viewer.setTree(start_tree,goal_tree); 
             
         } 
         Viewer.frameTick();  
@@ -382,7 +386,7 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
     }
     return path;
 }
-std::vector<Eigen::VectorXd> RRT::findPath(ContactProblem& cp, size_t iterations, KnotVisualizer& Viewer){
+std::vector<Eigen::VectorXd> RRT::findPath(ContactProblem& cp, size_t iterations, TreeVisualizer& Viewer){
     std::vector<Eigen::VectorXd> path;
     std::array<std::vector<rrt_vertex>*, 2> trees = { &start_tree, &goal_tree };
 
@@ -450,7 +454,8 @@ std::vector<Eigen::VectorXd> RRT::findPath(ContactProblem& cp, size_t iterations
             std::cout << "nearest Vertex to start is: " << nearest_start << " with distance " << (goal_tree[nearest_start].config - start_tree[0].config).norm() <<  std::endl;
 
             auto pts = DoFsToPos(cp.getVars(),0.25*n_dofs);
-            Viewer.updateKnot(pts); 
+            Viewer.updateKnot(pts);
+            Viewer.setTree(start_tree,goal_tree); 
         } 
         Viewer.frameTick();  
         

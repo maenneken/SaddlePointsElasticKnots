@@ -177,6 +177,8 @@ add_executable(FindPath
     FindPath.cpp
     projectToConstraintSpace.cpp
     rrt.cpp
+    PCA.cpp
+    TreeVisualizer.cpp
     helpers.cpp
     KnotVisualizer.cpp
 )
@@ -194,11 +196,6 @@ add_executable(OptimizePath
     KnotVisualizer.cpp
 )
 
-add_executable(PCA
-    PCA.cpp
-    helpers.cpp
-    KnotVisualizer.cpp
-)
 
 
 
@@ -208,5 +205,4 @@ target_link_libraries(SmashKnot PRIVATE polyscope ElasticKnots)
 target_link_libraries(FindPath PRIVATE polyscope ElasticKnots)
 target_link_libraries(ShowPath PRIVATE polyscope ElasticKnots)
 target_link_libraries(OptimizePath PRIVATE polyscope ElasticKnots)
-target_link_libraries(PCA PRIVATE polyscope ElasticKnots)
 

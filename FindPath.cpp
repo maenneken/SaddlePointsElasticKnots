@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
    
 
 
-    KnotVisualizer Viewer = KnotVisualizer();
+    TreeVisualizer Viewer = TreeVisualizer();
     Viewer.setKnot(start_centerline,0.01 * rod_radius);
 
     //show the goal state
@@ -153,7 +153,7 @@ int main(int argc, char** argv) {
             RRT rrt(start_dofs, goal_dofs, maxEnergy, steplength, goalBias, stepsize, pruningInterval,oneRandDirection,constraintStiffness);
 
             path = rrt.findConstrainedPath(cp,iterations,Viewer);
-            //std::vector<Eigen::VectorXd> path = rrt.findPath(cp,iterations,Viewer);
+            //path = rrt.findPath(cp,iterations,Viewer);
 
             std::cout << "Found a path of size: " << path.size() << std::endl; 
             showPath(path,cp,Viewer);

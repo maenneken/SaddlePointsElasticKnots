@@ -78,7 +78,7 @@ std::vector<Eigen::VectorXd> createDataset(std::string folder,  int reductionFac
 
 
     //gradient decend on the knots
-    std::vector<Eigen::VectorXd> relaxedknots;
+    std::vector<Eigen::VectorXd> relaxed_knots;
     for (size_t i = 0; i< cubic_knots.size();++i){
         cp.setVars(cubic_knots[i]);
         std::cout << "relaxing Knot: " << i << std::endl;
@@ -94,7 +94,7 @@ std::vector<Eigen::VectorXd> createDataset(std::string folder,  int reductionFac
     return relaxed_knots;
 }
 
-std::vector<Eigen::VectorXd> removeTwist(std::vector<Eigen::VectorXd> &data){
+std::vector<Eigen::VectorXd> removeTwist(const std::vector<Eigen::VectorXd> &data){
     size_t n_pts = data[0].size() /4;
     std::vector<Eigen::VectorXd> noTwist;
     for(Eigen::VectorXd current : data){
@@ -131,7 +131,7 @@ void PCA::fit(const std::vector<Eigen::VectorXd>& samples){
     components = svd.matrixV();   // all components
 }
 
-Eigen::VectorXd PCA::project(const Eigen::VectorXd& v, int k = 3){
+Eigen::VectorXd PCA::project(const Eigen::VectorXd& v, int k){
     Eigen::VectorXd centered = v - mean.transpose();
     return components.leftCols(k).transpose() * centered;
 }

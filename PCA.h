@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 
-std::vector<Eigen::VectorXd> removeTwist(std::vector<Eigen::VectorXd> &data);
+std::vector<Eigen::VectorXd> removeTwist(const std::vector<Eigen::VectorXd> &data);
 
 class PCA
 {

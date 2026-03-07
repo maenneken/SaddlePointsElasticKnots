@@ -9,13 +9,6 @@
 #define BLUE    "\033[34m"
 #define RESET   "\033[0m"
 
-struct rrt_vertex{
-    Eigen::VectorXd config;
-    int parent;
-
-    rrt_vertex(const Eigen::VectorXd& config_, int parent_)
-        : config(config_), parent(parent_) {}
-};
 class RRT{
     public:
         RRT(const Eigen::VectorXd& start, const Eigen::VectorXd& goal, double maxEnergy = 20, double stepLength = 2, double goalBias = 0.1, double steerStep = 0.1, size_t pruningInterval = 100, bool oneRandDirection = true, double constraintStiffness = 0.9);
@@ -26,8 +19,8 @@ class RRT{
         Eigen::VectorXd steerTowardsConfig(ContactProblem& cp, Eigen::VectorXd& near, Eigen::VectorXd& rand);
         Eigen::VectorXd steerInDirection(ContactProblem& cp, Eigen::VectorXd& config, Eigen::VectorXd& direction);
         std::vector<Eigen::VectorXd> createPath(Eigen::VectorXd connection);
-        std::vector<Eigen::VectorXd> findPath(ContactProblem& cp, size_t iterations, KnotVisualizer& Viewer);
-        std::vector<Eigen::VectorXd> findConstrainedPath(ContactProblem& cp, size_t iterations, KnotVisualizer& Viewer);
+        std::vector<Eigen::VectorXd> findPath(ContactProblem& cp, size_t iterations, TreeVisualizer& Viewer);
+        std::vector<Eigen::VectorXd> findConstrainedPath(ContactProblem& cp, size_t iterations, TreeVisualizer& Viewer);
         
         
     private:
