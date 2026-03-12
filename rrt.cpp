@@ -40,34 +40,51 @@ Eigen::VectorXd shiftPosIndcies(const Eigen::VectorXd& dofs){
 }
 RRT::RRT(const Eigen::VectorXd& start,
          const Eigen::VectorXd& goal,
+         PCA _pca,
          double maxEnergy,
          double stepLength,
          double goalBias,
          double steerStep,
          size_t pruningInterval,
          bool oneRandDirection,
-         double constraintStiffness){
+         double _radius){
 
     assert(start.size() == goal.size() && "start and goal must have same dimension");
     assert(maxEnergy > 0 && "maxEnergy must be positive");
     assert(stepLength > 0 && "stepLength must be positive");
     assert(steerStep > 0 && "steerStep must be positive");
 
+    pca = _pca;
+
     rrt_vertex start_vertex(start, -1);
+    start_vertex.projection(pca.project(start));
     rrt_vertex goal_vertex(goal, -1);
+    goal_vertex.projection(pca.project(goal));
+    
+
     start_tree.emplace_back(start_vertex);
     goal_tree.emplace_back(goal_vertex);
+    start_weight.emplace_back(1);
+    goal_weight.emplace_back(1);
+
+
     
     // //add all permutation of start and goal to the trees
     // size_t n_pts = start.size()/4;
     // for(size_t i = 0; i < n_pts -1; ++i){
     //     rrt_vertex current = start_tree.back();
     //     rrt_vertex start_shifted(shiftPosIndcies(current.config),-1);
+    //     start_shifted.projection(pca.project(current.config));   
     //     start_tree.emplace_back(start_shifted);
 
     //     current = goal_tree.back();
     //     rrt_vertex goal_shifted(shiftPosIndcies(current.config),-1);
+    //     goal_shifted.projection(pca.project(current.config));
     //     goal_tree.emplace_back(goal_shifted);
+
+    //     //add weights so they can be selected
+    //     start_weight.emplace_back(1.0);
+    //     goal_weight.emplace_back(1.0);
     // }
     // //now all backwards
     // rrt_vertex start_backwards (reversePosIndicies(start),-1);
@@ -78,11 +95,17 @@ RRT::RRT(const Eigen::VectorXd& start,
     // for(size_t i = 0; i < n_pts -1; ++i){
     //     rrt_vertex current = start_tree.back();
     //     rrt_vertex start_shifted(shiftPosIndcies(current.config),-1);
+    //     start_shifted.projection(pca.project(current.config));
     //     start_tree.emplace_back(start_shifted);
 
     //     current = goal_tree.back();
     //     rrt_vertex goal_shifted(shiftPosIndcies(current.config),-1);
+    //     goal_shifted.projection(pca.project(current.config));
     //     goal_tree.emplace_back(goal_shifted);
+
+    //     //add weights so they can be selected
+    //     start_weight.emplace_back(1.0);
+    //     goal_weight.emplace_back(1.0);
     // }
 
 
@@ -93,13 +116,15 @@ RRT::RRT(const Eigen::VectorXd& start,
     goal_bias = goalBias;
     pruning_interval = pruningInterval;
     one_rand_direction_3d = oneRandDirection;
-    constraint_stiffness = constraintStiffness;
+    radius = _radius;
 
     min_val = std::min(start.minCoeff(), goal.minCoeff()) - 10;
     max_val = std::max(start.maxCoeff(), goal.maxCoeff()) + 10;
 
     n_dofs = start.size();
 }
+//prunes all leafs
+//weights need to be recalulated
 std::vector<rrt_vertex> RRT::pruneAllLeafNodes(std::vector<rrt_vertex>& tree){
     std::vector<rrt_vertex> pruned_tree;
     //root must be in the tree
@@ -216,25 +241,56 @@ size_t RRT::nearestVertex(const Eigen::VectorXd& config, const std::vector<rrt_v
     }
     return nearest;
 }
+std::vector<size_t> RRT::kNearestNeighbor(const Eigen::VectorXd& config, const std::vector<rrt_vertex>& tree, int k){
+    std::vector<std::pair<double,size_t>> dists;
+
+    for(size_t i = 0; i < tree.size(); ++i){
+        double dist = (tree[i].config - config).squaredNorm();
+        dists.push_back({dist, i});
+    }
+
+    std::sort(dists.begin(), dists.end());
+
+    std::vector<size_t> nearest;
+    for(int i = 0; i < k && i < dists.size(); ++i){
+        nearest.push_back(dists[i].second);
+    }
+
+    return nearest;
+}
+std::vector<size_t> RRT::radiusNeighbor(const Eigen::VectorXd& config, const std::vector<rrt_vertex>& tree, double r){
+    double r2 = r*r;
+    std::vector<size_t> inRadius;
+
+    for(size_t i = 0; i < tree.size(); ++i){
+        //double dist = (tree[i].config - config).squaredNorm();
+        double dist = pca.dist(tree[i].config,config);
+        if(dist <= r2){
+            inRadius.emplace_back(i);
+        }
+    }
+    return inRadius;
+}
+
 //steer towards the rand configuration linear, till rand is reached, energy is to high, or max steer length is reached 
 Eigen::VectorXd RRT::steerTowardsConfig(ContactProblem& cp, Eigen::VectorXd& near, Eigen::VectorXd& rand){
     Eigen::VectorXd direction = rand - near;
     
-    if (direction.norm() < 1e-8)
+    if (direction.squaredNorm() < 1e-8)
         return near;  // nothing to do
     direction.normalize();
     Eigen::VectorXd current = near;
     cp.setVars(current);
     //go tillnot possible anymore; removed && (current - near).norm() <= step_length
-    while(cp.contactEnergy() <= max_energy  && ((current - rand).norm() >= steer_step)){
+    while(cp.contactEnergy() <= max_energy  && ((current - rand).squaredNorm() >= (steer_step*steer_step))){
         current += steer_step * direction;
         cp.setVars(current);
     }
-    if((current - near).norm() < 1e-8){
+    if((current - near).squaredNorm() < 1e-8){
         return near;
     }
     //we reached rand position
-    if((current - rand).norm() <= steer_step){
+    if((current - rand).squaredNorm() <= (steer_step*steer_step)){
         return rand;
     }
     //we went one to far
@@ -245,18 +301,18 @@ Eigen::VectorXd RRT::steerTowardsConfig(ContactProblem& cp, Eigen::VectorXd& nea
 //steer in direction linear, till energy is to high, or max steer length is reached 
 Eigen::VectorXd RRT::steerInDirection(ContactProblem& cp, Eigen::VectorXd& config, Eigen::VectorXd& direction){
     
-    if (direction.norm() < 1e-8)
+    if (direction.squaredNorm() < 1e-8)
         return config;  // nothing to do
     direction.normalize();
     Eigen::VectorXd current = config;
 
     cp.setVars(current);
     //go till not possible anymore or step_length is reached
-    while(cp.contactEnergy() <= max_energy && (current - config).norm() <= step_length){
+    while(cp.contactEnergy() <= max_energy && (current - config).squaredNorm() <= (step_length*step_length)){
         current += steer_step * direction;
         cp.setVars(current);
     }
-    if((current - config).norm() < 1e-8){
+    if((current - config).squaredNorm() < 1e-8){
         return config;
     }
     //we went one to far
@@ -296,74 +352,126 @@ std::vector<Eigen::VectorXd> RRT::createPath(Eigen::VectorXd connection){
     return full_path;
 
 }
+std::vector<double> RRT::updateAllWeights( const std::vector<rrt_vertex>& tree, double r){
+    std::vector<double> weights;
+    for (rrt_vertex v: tree){
+        double weight = 1 / radiusNeighbor(v.config, tree,r).size();
+        weights.emplace_back(weight);
+    }
+    return weights;
+}
+
+void RRT::updateNeighboringWeights(const Eigen::VectorXd& config, const std::vector<rrt_vertex>& tree,std::vector<double>& weights, double r){
+    std::vector<size_t> neighbors = radiusNeighbor(config, tree,r);
+    for (size_t n: neighbors){
+        double weight = 1 / radiusNeighbor(tree[n].config, tree,r).size();
+        weights[n] = weight;
+    }
+}
+
 //todo remove viewer
 //todo add findConstraintPathStep to use the viewer in a seperate file.
+void RRT::expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& goal, std::vector<rrt_vertex>& tree,std::vector<double>& weights, size_t k){
+    Eigen::VectorXd config = tree[config_id].config;
+
+    for(size_t i = 0; i < k; ++i){
+        Eigen::VectorXd rand_direction = sampleRandDirection(cp, config, goal);
+        
+        Eigen::VectorXd desired = config + step_length * rand_direction.normalized();
+
+        double weight = 1 / radiusNeighbor(desired, tree,radius).size();
+
+        // if weight is low it is not that interesting. so skip
+        if(uniform01() > weight) continue;
+        
+        //try to go in rand direction
+        Eigen::VectorXd new_config  = steerInDirection(cp, config, rand_direction);
+
+        //could not step towards it
+        if((new_config - config).squaredNorm() < 1e-8) continue;
+
+        //add new to the tree
+        rrt_vertex new_vertex(new_config,config_id);
+        new_vertex.projection = pca.project(new_config);
+        tree.emplace_back(new_vertex);
+        weights.emplace_back(1.0);
+    }
+    updateNeighboringWeights(config, tree, weights, radius);
+}
+bool RRT::connect(ContactProblem& cp, std::vector<rrt_vertex>& start_tree, std::vector<rrt_vertex>& goal_tree, double l){
+    double l2 = l*l;
+    for (rrt_vertex v_start : start_tree){
+        for (rrt_vertex v_goal : goal_tree){
+            if((v_start.config - v_goal.config).squaredNorm() < l2 ){
+
+                Eigen::VectorXd config = steerTowardsConfig(cp, v_start.config, v_goal.config);
+
+                if((config - v_start.config).squaredNorm() < 1e-8)continue;
+
+            
+                //we can connect both trees
+                if((config - v_goal.config).squaredNorm() < 1e-2){
+                    //add new to the tree
+                    std::cout <<"trees connect" << std::endl;
+                    //id is wrong
+                    rrt_vertex new_vertex(config,v_start.parent);
+                    start_tree.emplace_back(new_vertex);
+
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t iterations, TreeVisualizer& Viewer){
     std::vector<Eigen::VectorXd> path;
     std::array<std::vector<rrt_vertex>*, 2> trees = { &start_tree, &goal_tree };
+    std::array<std::vector<double>*, 2> weights = {&start_weight,&goal_weight};
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
 
     for(size_t i = 0; i < iterations; ++i){
         //switch between the two trees to expand them
         for(size_t t = 0; t < 2; ++ t){
             
             Eigen::VectorXd goal = (*trees[1 - t])[0].config;
+            Eigen::VectorXd start = (*trees[t])[0].config;
 
             size_t config_id;
+            //goalbias = exploitation
             //pick knot nearest to goal
             if(uniform01() < goal_bias){
-                config_id = nearestVertex(goal,*trees[t]);
+                auto nears = kNearestNeighbor(goal,*trees[t], 100);
+                size_t id = static_cast<size_t>(uniform01() * nears.size()); //random near Knot
+                config_id = nears[id];
             } else {
-                config_id = static_cast<size_t>(uniform01() * (*trees[t]).size()); //random Knot
+                std::discrete_distribution<> dd(weights[t]->begin(), weights[t]->end());
+                config_id = dd(gen);
             }
-            Eigen::VectorXd config = (*trees[t])[config_id].config;
-            Eigen::VectorXd rand_direction = sampleRandDirection(cp, config, goal);
-           
-            //try to go in rand direction
-            Eigen::VectorXd new_config  = steerInDirection(cp, config, rand_direction);
-
-
-            //could not step towards it
-            if((new_config - config).norm() < 1e-8) continue;
-
-            //add new to the tree
-            rrt_vertex new_vertex(new_config,config_id);
-            (*trees[t]).emplace_back(new_vertex);
-
-            Eigen::VectorXd nearest = new_config;
-
-            //try to connect to the other tree
-            size_t nearest_id = nearestVertex(new_config, *trees[1-t]);
-            nearest = (*trees[1-t])[nearest_id].config;
-            Eigen::VectorXd other_config = steerTowardsConfig(cp, nearest, new_config);
-            //maybe better to connect to goal?
-
-            if((other_config - nearest).norm() < 1e-8)continue;
-
-            
-            //we can connect both trees
-            if((other_config - new_config).norm() < 1e-2){
-                //add new to the tree
-                std::cout <<"trees connect" << std::endl;
-                rrt_vertex other_new_vertex(other_config,nearest_id);
-                (*trees[1-t]).emplace_back(other_new_vertex);
-                nearest = other_config;
-
-                //update Tree 
-                Viewer.setTree(start_tree,goal_tree);
-                return createPath(new_config);
-            }
+            expand(cp,config_id, goal, *trees[t], *weights[t],10);
+        
         } 
-        //pruning the tree   
-        if(i>0 && i % pruning_interval == 0){
-            std::cout << std::endl;
-            std::cout << RED <<"Trees are getting pruned" << RESET << std::endl;
-            std::cout << "Number of Vertcies befor pruning: "<< BLUE << "start_tree: "  << start_tree.size() << "; goal_tree: " << goal_tree.size() << RESET << std::endl;
-            auto nearest_goal = nearestVertex(goal_tree[0].config, start_tree);
-            start_tree = pruneAllLeafNodes(start_tree);
-            goal_tree = pruneAllLeafNodes(goal_tree);
-            std::cout << "Number of Vertcies after pruning: "<< GREEN << "start_tree: " << start_tree.size() << "; goal_tree: " << goal_tree.size() << RESET <<std::endl;
-
+        if(connect(cp,start_tree,goal_tree, step_length)){
+            Viewer.setTree(start_tree,goal_tree); 
+            return createPath(start_tree.back().config);
         }
+
+        // //pruning the tree   
+        // if(i>0 && i % pruning_interval == 0){
+        //     std::cout << std::endl;
+        //     std::cout << RED <<"Trees are getting pruned" << RESET << std::endl;
+        //     std::cout << "Number of Vertcies befor pruning: "<< BLUE << "start_tree: "  << start_tree.size() << "; goal_tree: " << goal_tree.size() << RESET << std::endl;
+        //     auto nearest_goal = nearestVertex(goal_tree[0].config, start_tree);
+        //     start_tree = pruneAllLeafNodes(start_tree);
+        //     goal_tree = pruneAllLeafNodes(goal_tree);
+        //     std::cout << "Number of Vertcies after pruning: "<< GREEN << "start_tree: " << start_tree.size() << "; goal_tree: " << goal_tree.size() << RESET <<std::endl;
+        //     start_weight = updateAllWeights(start_tree,radius);
+        //     goal_weight = updateAllWeights(goal_tree,radius);
+
+        // }
         
         if(i % 10 == 0){
             std::cout << std::endl;
@@ -373,7 +481,6 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             std::cout << "nearest Vertex to goal is: " << nearest_goal << " with distance " << (start_tree[nearest_goal].config - goal_tree[0].config).norm() << " and Energy: " <<cp.energy()<<" Contact Energy: "<< cp.contactEnergy() << std::endl;
             auto nearest_start = nearestVertex(start_tree[0].config, goal_tree);
             std::cout << "nearest Vertex to start is: " << nearest_start << " with distance " << (goal_tree[nearest_start].config - start_tree[0].config).norm() <<  std::endl;
-
             auto pts = DoFsToPos(start_tree[nearest_goal].config,0.25*n_dofs);
             Viewer.updateKnot(pts); 
             auto direction_to_goal = DoFsToPos(goal_tree[0].config - start_tree[nearest_goal].config,0.25*n_dofs);

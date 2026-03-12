@@ -4,6 +4,7 @@
 struct rrt_vertex{
     Eigen::VectorXd config;
     int parent;
+    Eigen::VectorXd projection;
 
     rrt_vertex(const Eigen::VectorXd& config_, int parent_)
         : config(config_), parent(parent_) {}
@@ -15,8 +16,10 @@ class TreeVisualizer : public KnotVisualizer{
         std::vector<Eigen::Vector3d> projectTree(std::vector<rrt_vertex> &tree, int dim);
         void setTree(std::vector<rrt_vertex>& start_tree, std::vector<rrt_vertex>& goal_tree);
         void updateTree(std::vector<rrt_vertex>& start_tree, std::vector<rrt_vertex>& goal_tree);
+
+        PCA pca;
     private:
         polyscope::CurveNetwork* start_tree_curve = nullptr;
         polyscope::CurveNetwork* goal_tree_curve = nullptr;
-        PCA pca;
+        
 };

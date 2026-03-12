@@ -9,7 +9,7 @@ std::vector<std::array<size_t,2>> TreeVisualizer::getEdges(std::vector<rrt_verte
     std::vector<std::array<size_t,2>> edges;
     for (size_t i = 0; i < tree.size(); ++i){
         //it has a parent
-        if(tree[i].parent > 0){
+        if(tree[i].parent >= 0){
             edges.push_back({tree[i].parent, i});
         }
     }
@@ -38,5 +38,13 @@ void TreeVisualizer::setTree(std::vector<rrt_vertex>& start_tree, std::vector<rr
     goal_tree_curve->resetTransform();
 }
 void TreeVisualizer::updateTree(std::vector<rrt_vertex>& start_tree, std::vector<rrt_vertex>& goal_tree){
-    return;
+    std::vector<std::array<size_t,2>> start_edges = getEdges(start_tree);
+    std::vector<Eigen::Vector3d> start_projection = projectTree(start_tree,3);
+    start_tree_curve = polyscope::registerCurveNetwork("start tree", start_projection, start_edges);
+    start_tree_curve->resetTransform();
+
+    std::vector<std::array<size_t,2>> goal_edges = getEdges(goal_tree);
+    std::vector<Eigen::Vector3d> goal_projection = projectTree(goal_tree,3);
+    goal_tree_curve = polyscope::registerCurveNetwork("goal tree", goal_projection, goal_edges);
+    goal_tree_curve->resetTransform();
 }

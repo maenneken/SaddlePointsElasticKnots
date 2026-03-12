@@ -54,6 +54,7 @@ int main(int argc, char** argv) {
     Eigen::VectorXd start_dofs = start_pr.getDoFs();
     Eigen::VectorXd goal_dofs = goal_pr.getDoFs();
 
+    
 
 
 
@@ -78,6 +79,50 @@ int main(int argc, char** argv) {
     // 6. Create contact problem
     ContactProblem cp(rod_list, problemOptions);
 
+    // //--- relax start and goal ---
+    // auto optimizerOptions = NewtonOptimizerOptions();
+    // optimizerOptions.niter = 10000;
+    // optimizerOptions.gradTol =  1e-6;
+
+    // std::cout << "Compute true start min" << std::endl;
+    // cp.setVars(start_dofs);
+    
+    // compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions);
+
+    // //needed otherwise Vars are wrong 
+    // cp.updateCachedVars();
+    // std::cout << GREEN << "Start Gradient: " << cp.gradient().norm() <<RESET<<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy() <<std::endl;
+    // start_dofs =  cp.getVars();
+
+
+    // std::cout << "Compute true goal min" << std::endl;
+    // cp.setVars(goal_dofs);
+    // compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions); 
+
+
+    // cp.updateCachedVars();
+    // std::cout << GREEN << "Goal Gradient: " << cp.gradient().norm()<<RESET <<" Energy: " << cp.energy()<<" contact Energy: " << cp.contactEnergy() <<std::endl;
+    // goal_dofs =  cp.getVars();
+
+    // //recenter data. otherwise the knot is shifted in 3d space
+    // Eigen::Vector3d start_centroid(0,0,0);
+    // Eigen::Vector3d goal_centroid(0,0,0);
+    // for (size_t i = 0; i < n_pts; ++i) {
+    //     start_centroid += start_dofs.segment<3>(3*i);
+    //     goal_centroid += goal_dofs.segment<3>(3*i);
+    // }
+    // start_centroid /= n_pts;
+    // goal_centroid /= n_pts;
+
+    // // 2. Subtract centroid from each point
+    // for (size_t i = 0; i < n_pts; ++i) {
+    //     start_dofs.segment<3>(3*i) -= start_centroid;
+    //     goal_dofs.segment<3>(3*i) -= goal_centroid;
+    // }
+    // //----------
+
+
+
     double start_energy = cp.contactEnergy();
     std::cout << "Start contact Energy: " << cp.contactEnergy()<< std::endl;
     cp.setVars(goal_dofs);
@@ -96,10 +141,10 @@ int main(int argc, char** argv) {
 
 
     TreeVisualizer Viewer = TreeVisualizer();
-    Viewer.setKnot(start_centerline,0.01 * rod_radius);
+    Viewer.setKnot(DoFsToPos(start_dofs,n_pts),0.01 * rod_radius);
 
     //show the goal state
-    Viewer.setGoalKnot(goal_centerline,0.01 * rod_radius);
+    Viewer.setGoalKnot(DoFsToPos(goal_dofs,n_pts),0.01 * rod_radius);
     //Save first Knot Vars
     auto startKnot = cp.getVars();
 
@@ -110,7 +155,7 @@ int main(int argc, char** argv) {
     static double steplength = 10;
     static double goalBias = 0.2;
     static bool oneRandDirection = true;
-    static double constraintStiffness = 1;
+    static double neighbor_radius= 2;
 
    
     bool running = false;
@@ -126,7 +171,7 @@ int main(int argc, char** argv) {
         ImGui::InputDouble("stepsize", &stepsize,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("stepLength", &steplength,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("goal Bias", &goalBias,(0.001),(0.01),"%.4f");
-        ImGui::InputDouble("Constraint Stiffness", &constraintStiffness,(0.001),(0.01),"%.4f");
+        ImGui::InputDouble("neighbor radius", &neighbor_radius,(0.1),(0.1),"%.4f");
         ImGui::Checkbox("oneRandDirection", &oneRandDirection);
     
         
@@ -150,8 +195,8 @@ int main(int argc, char** argv) {
     while (!polyscope::windowRequestsClose()) { 
         Viewer.frameTick();
         if(running){
-            RRT rrt(start_dofs, goal_dofs, maxEnergy, steplength, goalBias, stepsize, pruningInterval,oneRandDirection,constraintStiffness);
-
+            RRT rrt(start_dofs, goal_dofs, Viewer.pca, maxEnergy, steplength, goalBias, stepsize, pruningInterval,oneRandDirection,neighbor_radius);
+            Viewer.setTree(rrt.start_tree, rrt.goal_tree);
             path = rrt.findConstrainedPath(cp,iterations,Viewer);
             //path = rrt.findPath(cp,iterations,Viewer);
 

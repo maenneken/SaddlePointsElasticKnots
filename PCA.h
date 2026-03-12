@@ -11,11 +11,11 @@ class PCA
 public:
 
     void fit(const std::vector<Eigen::VectorXd>& samples);
-    
-
     Eigen::VectorXd project(const Eigen::VectorXd& v, int k = 3);
+    double dist(const Eigen::VectorXd& x, const Eigen::VectorXd& y, int k = 3);
     
 private:
     Eigen::RowVectorXd mean;
     Eigen::MatrixXd components;
+    size_t data_dim;
 };

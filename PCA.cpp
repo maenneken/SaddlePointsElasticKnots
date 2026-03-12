@@ -102,10 +102,12 @@ std::vector<Eigen::VectorXd> removeTwist(const std::vector<Eigen::VectorXd> &dat
     }
     return noTwist;
 }
+
 Eigen::MatrixXd toMatrix(const std::vector<Eigen::VectorXd>& data)
 {
     size_t N = data.size();
     size_t d = data[0].size();
+
 
     Eigen::MatrixXd M(N, d);
 
@@ -116,8 +118,10 @@ Eigen::MatrixXd toMatrix(const std::vector<Eigen::VectorXd>& data)
 }
 
 
+  
 
 void PCA::fit(const std::vector<Eigen::VectorXd>& samples){
+    data_dim = samples[0].size();
     Eigen::MatrixXd X = toMatrix(samples);
 
     mean = X.colwise().mean();
@@ -127,13 +131,31 @@ void PCA::fit(const std::vector<Eigen::VectorXd>& samples){
             centered,
             Eigen::ComputeThinV
     );
-
+    
     components = svd.matrixV();   // all components
 }
 
 Eigen::VectorXd PCA::project(const Eigen::VectorXd& v, int k){
-    Eigen::VectorXd centered = v - mean.transpose();
+    Eigen::VectorXd centered;
+    if(v.size() > data_dim){
+        centered = removeTwist({v})[0] - mean.transpose();
+    } else {
+        centered = v - mean.transpose();
+    }
+   
     return components.leftCols(k).transpose() * centered;
+}
+
+double PCA::dist (const Eigen::VectorXd& x, const Eigen::VectorXd& y, int k){
+    Eigen::VectorXd x_short = removeTwist({x})[0];
+    Eigen::VectorXd y_short = removeTwist({y})[0];
+
+    Eigen::VectorXd x_proj = project(x_short,k);
+    Eigen::VectorXd y_proj = project(y_short,k);
+
+    double d = (x_proj - y_proj).squaredNorm();  
+
+    return d;
 }
 
 
