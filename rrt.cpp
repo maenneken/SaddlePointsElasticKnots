@@ -263,8 +263,8 @@ std::vector<size_t> RRT::radiusNeighbor(const Eigen::VectorXd& config, const std
     std::vector<size_t> inRadius;
 
     for(size_t i = 0; i < tree.size(); ++i){
-        //double dist = (tree[i].config - config).squaredNorm();
-        double dist = pca.dist(tree[i].config,config);
+        double dist = (tree[i].config - config).squaredNorm();
+        //double dist = pca.dist(tree[i].config,config);
         if(dist <= r2){
             inRadius.emplace_back(i);
         }
@@ -355,7 +355,7 @@ std::vector<Eigen::VectorXd> RRT::createPath(Eigen::VectorXd connection){
 std::vector<double> RRT::updateAllWeights( const std::vector<rrt_vertex>& tree, double r){
     std::vector<double> weights;
     for (rrt_vertex v: tree){
-        double weight = 1 / radiusNeighbor(v.config, tree,r).size();
+        double weight = 1.0 / radiusNeighbor(v.config, tree,r).size();
         weights.emplace_back(weight);
     }
     return weights;
@@ -364,7 +364,7 @@ std::vector<double> RRT::updateAllWeights( const std::vector<rrt_vertex>& tree, 
 void RRT::updateNeighboringWeights(const Eigen::VectorXd& config, const std::vector<rrt_vertex>& tree,std::vector<double>& weights, double r){
     std::vector<size_t> neighbors = radiusNeighbor(config, tree,r);
     for (size_t n: neighbors){
-        double weight = 1 / radiusNeighbor(tree[n].config, tree,r).size();
+        double weight = 1.0 / (radiusNeighbor(tree[n].config, tree,r).size() + 1);
         weights[n] = weight;
     }
 }
@@ -379,10 +379,16 @@ void RRT::expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& go
         
         Eigen::VectorXd desired = config + step_length * rand_direction.normalized();
 
-        double weight = 1 / radiusNeighbor(desired, tree,radius).size();
+        size_t nn = radiusNeighbor(desired, tree,radius).size();
+        if(nn <=0){
+            nn = 1;
+        }
+        double weight = 1.0 / nn;
 
         // if weight is low it is not that interesting. so skip
-        if(uniform01() > weight) continue;
+        if(uniform01() > weight){
+            continue;
+        } 
         
         //try to go in rand direction
         Eigen::VectorXd new_config  = steerInDirection(cp, config, rand_direction);
@@ -400,10 +406,15 @@ void RRT::expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& go
 }
 bool RRT::connect(ContactProblem& cp, std::vector<rrt_vertex>& start_tree, std::vector<rrt_vertex>& goal_tree, double l){
     double l2 = l*l;
-    for (rrt_vertex v_start : start_tree){
-        for (rrt_vertex v_goal : goal_tree){
-            if((v_start.config - v_goal.config).squaredNorm() < l2 ){
+    for ( size_t i = start_tree.size() -1; i > start_tree.size() -11; --i){
+        rrt_vertex v_start = start_tree[i];
+        
+        auto nearest = kNearestNeighbor(v_start.config,goal_tree,10);
+        for (size_t n : nearest){
+            rrt_vertex v_goal = goal_tree[n];
 
+            if((v_start.config - v_goal.config).squaredNorm() < l2 ){
+                
                 Eigen::VectorXd config = steerTowardsConfig(cp, v_start.config, v_goal.config);
 
                 if((config - v_start.config).squaredNorm() < 1e-8)continue;
@@ -413,8 +424,8 @@ bool RRT::connect(ContactProblem& cp, std::vector<rrt_vertex>& start_tree, std::
                 if((config - v_goal.config).squaredNorm() < 1e-2){
                     //add new to the tree
                     std::cout <<"trees connect" << std::endl;
-                    //id is wrong
-                    rrt_vertex new_vertex(config,v_start.parent);
+
+                    rrt_vertex new_vertex(config,i);
                     start_tree.emplace_back(new_vertex);
 
                     return true;
@@ -441,6 +452,12 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             Eigen::VectorXd start = (*trees[t])[0].config;
 
             size_t config_id;
+
+            //try to go towards the tree
+            if(uniform01() < (goal_bias/4)){
+                size_t id = nearestVertex(start,*trees[1-t]);
+                goal = (*trees[1-t])[id].config;
+            }
             //goalbias = exploitation
             //pick knot nearest to goal
             if(uniform01() < goal_bias){
@@ -454,7 +471,7 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             expand(cp,config_id, goal, *trees[t], *weights[t],10);
         
         } 
-        if(connect(cp,start_tree,goal_tree, step_length)){
+        if(connect(cp,start_tree,goal_tree, 10*step_length)){
             Viewer.setTree(start_tree,goal_tree); 
             return createPath(start_tree.back().config);
         }

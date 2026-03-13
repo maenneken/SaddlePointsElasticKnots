@@ -133,6 +133,22 @@ void PCA::fit(const std::vector<Eigen::VectorXd>& samples){
     );
     
     components = svd.matrixV();   // all components
+
+    // store singular values
+    auto singular_values = svd.singularValues();
+
+    // compute explained variance
+    Eigen::VectorXd var = singular_values.array().square();
+
+    double total_var = var.sum();
+
+    auto variance_ratio = var / total_var;
+
+    for(int i = 0; i < variance_ratio.size(); ++i){
+    std::cout << "PC" << i+1 << ": "
+              << variance_ratio(i) * 100
+              << "%\n";
+    }
 }
 
 Eigen::VectorXd PCA::project(const Eigen::VectorXd& v, int k){
@@ -144,6 +160,10 @@ Eigen::VectorXd PCA::project(const Eigen::VectorXd& v, int k){
     }
    
     return components.leftCols(k).transpose() * centered;
+}
+
+Eigen::VectorXd PCA::reconstruct(const Eigen::VectorXd& y, int k){
+    return mean.transpose() + components.leftCols(k) * y;
 }
 
 double PCA::dist (const Eigen::VectorXd& x, const Eigen::VectorXd& y, int k){

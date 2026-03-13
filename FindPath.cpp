@@ -155,7 +155,7 @@ int main(int argc, char** argv) {
     static double steplength = 10;
     static double goalBias = 0.2;
     static bool oneRandDirection = true;
-    static double neighbor_radius= 2;
+    static double neighbor_radius= 4;
 
    
     bool running = false;
