@@ -197,12 +197,16 @@ add_executable(OptimizePath
 )
 
 
-
+find_package(nanoflann REQUIRED)
 
 target_link_libraries(test1 PRIVATE polyscope ElasticKnots)
 target_link_libraries(FindSaddle PRIVATE polyscope ElasticKnots)
 target_link_libraries(SmashKnot PRIVATE polyscope ElasticKnots)
-target_link_libraries(FindPath PRIVATE polyscope ElasticKnots)
+target_link_libraries(FindPath PRIVATE polyscope ElasticKnots nanoflann::nanoflann)
 target_link_libraries(ShowPath PRIVATE polyscope ElasticKnots)
 target_link_libraries(OptimizePath PRIVATE polyscope ElasticKnots)
+
+
+
+
 

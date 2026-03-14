@@ -2,12 +2,42 @@
 #include "helpers.h"
 #include "TreeVisualizer.h"
 #include "projectToConstraintSpace.h"
+#include <nanoflann.hpp> 
 
 #define RED     "\033[31m"
 #define GREEN   "\033[32m"
 #define YELLOW  "\033[33m"
 #define BLUE    "\033[34m"
 #define RESET   "\033[0m"
+
+
+
+struct RRTAdaptor {
+    const std::vector<rrt_vertex>& pts;
+
+    RRTAdaptor(const std::vector<rrt_vertex>& pts_) : pts(pts_) {}
+
+    // number of points
+    inline size_t kdtree_get_point_count() const {
+        return pts.size();
+    }
+
+    // coordinate accessor
+    inline double kdtree_get_pt(const size_t idx, const size_t dim) const {
+        return pts[idx].projection(dim);
+    }
+
+    // optional bounding box
+    template <class BBOX>
+    bool kdtree_get_bbox(BBOX&) const { return false; }
+};
+
+using KDTree = nanoflann::KDTreeSingleIndexAdaptor<
+    nanoflann::L2_Simple_Adaptor<double, RRTAdaptor>,
+    RRTAdaptor,
+    -1,
+    size_t
+>;
 
 class RRT{
     public:
@@ -16,15 +46,16 @@ class RRT{
         Eigen::VectorXd sampleRandConfig(ContactProblem& cp, const Eigen::VectorXd& goal, const std::vector<rrt_vertex>& tree);
         Eigen::VectorXd sampleRandDirection(ContactProblem& cp, const Eigen::VectorXd& current_config, const Eigen::VectorXd& goal);
         size_t nearestVertex(const Eigen::VectorXd& config, const std::vector<rrt_vertex>& tree);
-        std::vector<size_t> kNearestNeighbor(const Eigen::VectorXd& config, const std::vector<rrt_vertex>& tree, int k);
-        std::vector<size_t> radiusNeighbor(const Eigen::VectorXd& config, const std::vector<rrt_vertex>& tree, double r);
-        void updateNeighboringWeights(const Eigen::VectorXd& config, const std::vector<rrt_vertex>& tree,std::vector<double>& weights, double r);
-        std::vector<double> updateAllWeights( const std::vector<rrt_vertex>& tree, double r);
+        void buildKDTrees();
+        std::vector<size_t> kNearestNeighbor(const Eigen::VectorXd& query_projection, const KDTree& index, int k);
+        std::vector<size_t> radiusNeighbor(const Eigen::VectorXd& query_projection, const KDTree& index, double r);
+        void updateNeighboringWeights(const Eigen::VectorXd& config,std::vector<rrt_vertex>& tree,std::vector<double>& weights, const KDTree& kd_tree, double r);
+        std::vector<double> updateAllWeights( const std::vector<rrt_vertex>& tree, KDTree& kd_tree, double r);
         Eigen::VectorXd steerTowardsConfig(ContactProblem& cp, Eigen::VectorXd& near, Eigen::VectorXd& rand);
         Eigen::VectorXd steerInDirection(ContactProblem& cp, Eigen::VectorXd& config, Eigen::VectorXd& direction);
         std::vector<Eigen::VectorXd> createPath(Eigen::VectorXd connection);
-        void expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& goal, std::vector<rrt_vertex>& tree,std::vector<double>& weights, size_t k);
-        bool connect(ContactProblem& cp, std::vector<rrt_vertex>& start_tree, std::vector<rrt_vertex>& goal_tree, double l);
+        void expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& goal, std::vector<rrt_vertex>& tree,std::vector<double>& weights, KDTree& kd_tree, size_t k);
+        bool connect(ContactProblem& cp, double l);
         std::vector<Eigen::VectorXd> findPath(ContactProblem& cp, size_t iterations, TreeVisualizer& Viewer);
         std::vector<Eigen::VectorXd> findConstrainedPath(ContactProblem& cp, size_t iterations, TreeVisualizer& Viewer);
         
@@ -46,9 +77,16 @@ class RRT{
         bool one_rand_direction_3d;
         double constraint_stiffness;
         double radius;
+        size_t k_neighbors = 10;
 
         PCA pca;
-        
+        size_t proj_dim = 10;
+
+        std::unique_ptr<RRTAdaptor> start_adaptor;
+        std::unique_ptr<RRTAdaptor> goal_adaptor;
+
+        std::unique_ptr<KDTree> start_kd_tree;
+        std::unique_ptr<KDTree> goal_kd_tree;
 
 
 };

@@ -158,7 +158,7 @@ Eigen::VectorXd PCA::project(const Eigen::VectorXd& v, int k){
     } else {
         centered = v - mean.transpose();
     }
-   
+    //centered.normalize();
     return components.leftCols(k).transpose() * centered;
 }
 
