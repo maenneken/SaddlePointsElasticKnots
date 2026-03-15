@@ -451,31 +451,59 @@ void RRT::expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& go
 }
 bool RRT::connect(ContactProblem& cp, double l){
     double l2 = l*l;
-    for ( size_t i = start_tree.size() -1; i > start_tree.size() -11; --i){
+    for ( size_t i = start_tree.size() -1 ; i > start_tree.size() - 100; --i){
         rrt_vertex v_start = start_tree[i];
         
-        auto nearest = kNearestNeighbor(v_start.projection,*goal_kd_tree,k_neighbors);
+        auto nearest = kNearestNeighbor(v_start.projection, *goal_kd_tree, k_neighbors);
         for (size_t n : nearest){
             rrt_vertex v_goal = goal_tree[n];
 
-            if((v_start.config - v_goal.config).squaredNorm() < l2 ){
+            if((v_goal.projection-v_start.projection).squaredNorm() > l2) continue;
                 
-                Eigen::VectorXd config = steerTowardsConfig(cp, v_start.config, v_goal.config);
+            Eigen::VectorXd config = steerTowardsConfig(cp, v_start.config, v_goal.config);
 
-                if((config - v_start.config).squaredNorm() < 1e-8)continue;
+            if((config - v_start.config).squaredNorm() < 1e-8) continue;
 
-            
-                //we can connect both trees
-                if((config - v_goal.config).squaredNorm() < 1e-2){
-                    //add new to the tree
-                    std::cout <<"trees connect" << std::endl;
 
-                    rrt_vertex new_vertex(config,i);
-                    start_tree.emplace_back(new_vertex);
+            //we can connect both trees
+            if((config - v_goal.config).squaredNorm() < 1e-2){
+                //add new to the tree
+                std::cout <<"trees connect" << std::endl;
 
-                    return true;
-                }
-            }
+                rrt_vertex new_vertex(config,i);
+                new_vertex.projection = pca.project(config,proj_dim);
+                start_tree.emplace_back(new_vertex);
+
+                 return true;
+            }            
+        }
+        
+    }
+    for ( size_t i = goal_tree.size() -1 ; i > goal_tree.size() - 100; --i){
+        rrt_vertex v_goal = goal_tree[i];
+        
+        auto nearest = kNearestNeighbor(v_goal.projection, *start_kd_tree, k_neighbors);
+        for (size_t n : nearest){
+            rrt_vertex v_start = start_tree[n];
+
+            if((v_goal.projection-v_start.projection).squaredNorm() > l2) continue;
+                
+            Eigen::VectorXd config = steerTowardsConfig(cp, v_start.config, v_goal.config);
+
+            if((config - v_start.config).squaredNorm() < 1e-8) continue;
+
+
+            //we can connect both trees
+            if((config - v_goal.config).squaredNorm() < 1e-2){
+                //add new to the tree
+                std::cout <<"trees connect" << std::endl;
+
+                rrt_vertex new_vertex(config,i);
+                new_vertex.projection = pca.project(config,proj_dim);
+                start_tree.emplace_back(new_vertex);
+
+                 return true;
+            }            
         }
     }
     return false;
@@ -502,8 +530,8 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             size_t config_id;
 
             //try to go towards the tree
-            if(uniform01() < (goal_bias/4)){
-                auto nears = kNearestNeighbor(pca.project(start,proj_dim),*kd_trees[1-t], 100);
+            if(uniform01() < (goal_bias/2)){
+                auto nears = kNearestNeighbor(pca.project(start,proj_dim),*kd_trees[1-t], k_neighbors);
                 if(nears.empty()){
                     continue; // skip this expansion, KD-tree has no neighbors
                 }
@@ -513,7 +541,7 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             //goalbias = exploitation
             //pick knot nearest to goal
             if(uniform01() < goal_bias){
-                auto nears = kNearestNeighbor(pca.project(goal,proj_dim),*kd_trees[t], 100);
+                auto nears = kNearestNeighbor(pca.project(goal,proj_dim),*kd_trees[t], k_neighbors);
                 if(nears.empty()){
                     continue; // skip this expansion, KD-tree has no neighbors
                 }
@@ -531,7 +559,7 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             goal_kd_tree->buildIndex();
         }
 
-        if(connect(cp, step_length)){
+        if(i % 10 == 0 && connect(cp, step_length)){
             Viewer.setTree(start_tree,goal_tree); 
             return createPath(start_tree.back().config);
         }
