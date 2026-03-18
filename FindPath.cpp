@@ -3,10 +3,12 @@
 #include <thread>   // for std::this_thread::sleep_for
 #include <chrono>   // for std::chrono::milliseconds
 
-
-
-
-
+void reflect_knot(Eigen::VectorXd& dofs, int axs){
+    int n_pts = dofs.size() / 4 ;
+    for(int i = 0; i < n_pts; ++i){
+        dofs(3 * i + axs) *= -1;
+    }
+}
 int main(int argc, char** argv) {
     //std::string start_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0001.obj";
     //std::string goal_file = "../data/L400-r0.2-UpTo9Crossings/4_1/0033.obj";
@@ -44,6 +46,12 @@ int main(int argc, char** argv) {
     // Read centerline nodes
     std::vector<Eigen::Vector3d> start_centerline = reduce_knot_resolution(read_nodes_from_file(start_file), reductionFactor);
     std::vector<Eigen::Vector3d> goal_centerline = reduce_knot_resolution(read_nodes_from_file(goal_file), reductionFactor);
+    for (size_t i = 0; i < goal_centerline.size(); ++i){
+        start_centerline[i][2] *= 1;
+    }
+    for (size_t i = 0; i < goal_centerline.size(); ++i){
+        start_centerline[i][0] *= 1;
+    }
 
 
     int n_pts = start_centerline.size();  
@@ -79,49 +87,8 @@ int main(int argc, char** argv) {
     // 6. Create contact problem
     ContactProblem cp(rod_list, problemOptions);
 
-    // //--- relax start and goal ---
-    // auto optimizerOptions = NewtonOptimizerOptions();
-    // optimizerOptions.niter = 10000;
-    // optimizerOptions.gradTol =  1e-6;
-
-    // std::cout << "Compute true start min" << std::endl;
-    // cp.setVars(start_dofs);
     
-    // compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions);
-
-    // //needed otherwise Vars are wrong 
-    // cp.updateCachedVars();
-    // std::cout << GREEN << "Start Gradient: " << cp.gradient().norm() <<RESET<<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy() <<std::endl;
-    // start_dofs =  cp.getVars();
-
-
-    // std::cout << "Compute true goal min" << std::endl;
-    // cp.setVars(goal_dofs);
-    // compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions); 
-
-
-    // cp.updateCachedVars();
-    // std::cout << GREEN << "Goal Gradient: " << cp.gradient().norm()<<RESET <<" Energy: " << cp.energy()<<" contact Energy: " << cp.contactEnergy() <<std::endl;
-    // goal_dofs =  cp.getVars();
-
-    // //recenter data. otherwise the knot is shifted in 3d space
-    // Eigen::Vector3d start_centroid(0,0,0);
-    // Eigen::Vector3d goal_centroid(0,0,0);
-    // for (size_t i = 0; i < n_pts; ++i) {
-    //     start_centroid += start_dofs.segment<3>(3*i);
-    //     goal_centroid += goal_dofs.segment<3>(3*i);
-    // }
-    // start_centroid /= n_pts;
-    // goal_centroid /= n_pts;
-
-    // // 2. Subtract centroid from each point
-    // for (size_t i = 0; i < n_pts; ++i) {
-    //     start_dofs.segment<3>(3*i) -= start_centroid;
-    //     goal_dofs.segment<3>(3*i) -= goal_centroid;
-    // }
-    // //----------
-
-
+    
 
     double start_energy = cp.contactEnergy();
     std::cout << "Start contact Energy: " << cp.contactEnergy()<< std::endl;
@@ -152,10 +119,11 @@ int main(int argc, char** argv) {
     static int pruningInterval = 1000;
     static double maxEnergy = std::max({start_energy,goal_energy})*2 +1;
     static double stepsize = 1;
-    static double steplength = 10;
+    static double steplength = 40;
     static double goalBias = 0.2;
-    static bool oneRandDirection = true;
-    static double neighbor_radius= 4;
+    static bool oneRandDirection = false;
+    static bool allPermutations = true;
+    static double neighbor_radius = 10;
 
    
     bool running = false;
@@ -173,10 +141,19 @@ int main(int argc, char** argv) {
         ImGui::InputDouble("goal Bias", &goalBias,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("neighbor radius", &neighbor_radius,(0.1),(0.1),"%.4f");
         ImGui::Checkbox("oneRandDirection", &oneRandDirection);
+        ImGui::Checkbox("all Permutations of start and goal", &allPermutations);
     
         
 
-
+        if(ImGui::Button("Relax start and goal")){
+            relax_start_goal(cp, start_dofs,goal_dofs);
+            Viewer.setKnot(DoFsToPos(start_dofs,n_pts),0.01 * rod_radius);
+            Viewer.setGoalKnot(DoFsToPos(goal_dofs,n_pts),0.01 * rod_radius);
+        }
+        if(ImGui::Button("reflect goal")){
+            reflect_knot(goal_dofs, 2);
+            Viewer.setGoalKnot(DoFsToPos(goal_dofs,n_pts),0.01 * rod_radius);
+        }
         if (ImGui::Button("Find Path")) {
             running=true;
         }
@@ -195,7 +172,15 @@ int main(int argc, char** argv) {
     while (!polyscope::windowRequestsClose()) { 
         Viewer.frameTick();
         if(running){
-            RRT rrt(start_dofs, goal_dofs, Viewer.pca, maxEnergy, steplength, goalBias, stepsize, pruningInterval,oneRandDirection,neighbor_radius);
+            RRT rrt(start_dofs, goal_dofs, Viewer.pca, allPermutations);
+            rrt.goal_bias = goalBias;
+            rrt.max_energy = maxEnergy;
+            rrt.pruning_interval = pruningInterval;
+            rrt.steer_step = stepsize;
+            rrt.step_length = steplength;
+            rrt.radius = neighbor_radius;
+            rrt.one_rand_direction_3d = oneRandDirection;
+
             Viewer.setTree(rrt.start_tree, rrt.goal_tree);
             path = rrt.findConstrainedPath(cp,iterations,Viewer);
             //path = rrt.findPath(cp,iterations,Viewer);

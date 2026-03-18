@@ -341,5 +341,55 @@ void showPath(std::vector<Eigen::VectorXd>& path, ContactProblem& cp, KnotVisual
 
 }
 
+void relax_start_goal(ContactProblem& cp, Eigen::VectorXd& start_dofs,  Eigen::VectorXd& goal_dofs){
+//--- relax start and goal ---
+    size_t n_pts = start_dofs.size() / 4;
+
+    auto optimizerOptions = NewtonOptimizerOptions();
+    optimizerOptions.niter = 10000;
+    optimizerOptions.gradTol =  1e-6;
+
+    auto problemOptions = cp.m_options;
+
+    std::cout << "Compute true start min" << std::endl;
+    cp.setVars(start_dofs);
+    
+    compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions);
+
+    //needed otherwise Vars are wrong 
+    cp.updateCachedVars();
+    std::cout << GREEN << "Start Gradient: " << cp.gradient().norm() <<RESET<<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy() <<std::endl;
+    start_dofs =  cp.getVars();
+
+
+    std::cout << "Compute true goal min" << std::endl;
+    cp.setVars(goal_dofs);
+    compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions); 
+
+
+    cp.updateCachedVars();
+    std::cout << GREEN << "Goal Gradient: " << cp.gradient().norm()<<RESET <<" Energy: " << cp.energy()<<" contact Energy: " << cp.contactEnergy() <<std::endl;
+    goal_dofs =  cp.getVars();
+
+    //recenter data. otherwise the knot is shifted in 3d space
+    Eigen::Vector3d start_centroid(0,0,0);
+    Eigen::Vector3d goal_centroid(0,0,0);
+    for (size_t i = 0; i < n_pts; ++i) {
+        start_centroid += start_dofs.segment<3>(3*i);
+        goal_centroid += goal_dofs.segment<3>(3*i);
+    }
+    start_centroid /= n_pts;
+    goal_centroid /= n_pts;
+
+    // 2. Subtract centroid from each point
+    for (size_t i = 0; i < n_pts; ++i) {
+        start_dofs.segment<3>(3*i) -= start_centroid;
+        goal_dofs.segment<3>(3*i) -= goal_centroid;
+    }
+    //----------
+
+}
+
+
 
 

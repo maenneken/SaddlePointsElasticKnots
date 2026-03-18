@@ -41,7 +41,8 @@ using KDTree = nanoflann::KDTreeSingleIndexAdaptor<
 
 class RRT{
     public:
-        RRT(const Eigen::VectorXd& start, const Eigen::VectorXd& goal,PCA _pca, double maxEnergy = 20, double stepLength = 2, double goalBias = 0.1, double steerStep = 0.1, size_t pruningInterval = 100, bool oneRandDirection = true,double _radius= 2);
+        RRT(const Eigen::VectorXd& start, const Eigen::VectorXd& goal,PCA _pca,bool all_permutations = true);
+        void add_all_permutations(const Eigen::VectorXd& start, const Eigen::VectorXd& goal);
         std::vector<rrt_vertex> pruneAllLeafNodes(std::vector<rrt_vertex>& tree);
         Eigen::VectorXd sampleRandConfig(ContactProblem& cp, const Eigen::VectorXd& goal, const std::vector<rrt_vertex>& tree);
         Eigen::VectorXd sampleRandDirection(ContactProblem& cp, const Eigen::VectorXd& current_config, const Eigen::VectorXd& goal);
@@ -56,7 +57,6 @@ class RRT{
         std::vector<Eigen::VectorXd> createPath(Eigen::VectorXd connection);
         void expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& goal, std::vector<rrt_vertex>& tree,std::vector<double>& weights, KDTree& kd_tree, size_t k);
         bool connect(ContactProblem& cp, double l);
-        std::vector<Eigen::VectorXd> findPath(ContactProblem& cp, size_t iterations, TreeVisualizer& Viewer);
         std::vector<Eigen::VectorXd> findConstrainedPath(ContactProblem& cp, size_t iterations, TreeVisualizer& Viewer);
         
         std::vector<rrt_vertex> start_tree;
@@ -64,24 +64,27 @@ class RRT{
 
         std::vector<double> start_weight;
         std::vector<double> goal_weight;
-        
+
+
+        double step_length = 40;
+        double max_energy = 10;
+        double goal_bias = 0.2;
+        double steer_step = 1;
+        size_t pruning_interval = 1000;
+        bool one_rand_direction_3d = false;
+        double radius = 10;
+        size_t k_neighbors = 10;
+        double rotation_bias = 0.1;
+        double gradient_bias = 0.1;
+        size_t proj_dim = 15;
+
     private:
-        double step_length;
-        double max_energy;
         double min_val;
         double max_val;
         size_t n_dofs;
-        double goal_bias;
-        double steer_step;
-        size_t pruning_interval;
-        bool one_rand_direction_3d;
-        double constraint_stiffness;
-        double radius;
-        size_t k_neighbors = 10;
-
+        
         PCA pca;
-        size_t proj_dim = 10;
-
+        
         std::unique_ptr<RRTAdaptor> start_adaptor;
         std::unique_ptr<RRTAdaptor> goal_adaptor;
 

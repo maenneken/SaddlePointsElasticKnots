@@ -109,8 +109,9 @@ int main(int argc, char** argv) {
     int path_idx = 0;
     int old_idx = 0;
     bool show_path = false;
-    int sleep_mil = 10;
-    double step_size = 0.1;
+    int sleep_mil = 0;
+    double step_size = 0.5;
+    int intersecion_counter = 0;
     Viewer.setUserCallback([&]() {
         ImGui::Begin("Controls");
         ImGui::PushItemWidth(200);
@@ -183,7 +184,8 @@ int main(int argc, char** argv) {
 
 
                     if(cp.contactEnergy() > 1000){
-                        std::cout << RED << "possible selfintersection at " << i << std::endl;
+                        std::cout << RED << "possible selfintersection at " << i <<  RESET << std::endl;
+                        ++intersecion_counter;
                     }
                     Viewer.updateKnot(DoFsToPos(current, n_pts));
                     Viewer.frameTick();
@@ -191,6 +193,7 @@ int main(int argc, char** argv) {
                 }
             }
             show_path=false;
+            std::cout << RED << "There are  " << intersecion_counter << " intersections" << RESET << std::endl;
         }
         Viewer.frameTick();
     }
