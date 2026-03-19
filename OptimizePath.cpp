@@ -71,84 +71,8 @@ int main(int argc, char** argv) {
     KnotVisualizer Viewer = KnotVisualizer();
     Viewer.setKnot(centerline,0.01 * rod_radius); 
 
-
-    //energy is is not consistent after storing and reaplying vars
-    /*
-    //relax ends of path and add them
-    auto optimizerOptions = NewtonOptimizerOptions();
-    optimizerOptions.niter = 10000;
-    optimizerOptions.gradTol =  1e-6;
-
-    std::cout << "Compute true start min" << std::endl;
-    cp.setVars(path[0]);
-    
-    compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions);
-
-    //needed otherwise Vars are wrong 
-    cp.updateCachedVars();
-    std::cout << GREEN << "Start Gradient: " << cp.gradient().norm() <<RESET<<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy() <<std::endl;
-    Eigen::VectorXd start =  cp.getVars();
-
-
-    std::cout << "Compute true goal min" << std::endl;
-    cp.setVars(path[path.size()-1]);
-    compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions); 
-
-
-    cp.updateCachedVars();
-    std::cout << GREEN << "Goal Gradient: " << cp.gradient().norm()<<RESET <<" Energy: " << cp.energy()<<" contact Energy: " << cp.contactEnergy() <<std::endl;
-    Eigen::VectorXd goal =  cp.getVars();
-
-
-    //saving and then cp.setVars() changes gradient and energy
-    cp.setVars(start);
-    std::cout << GREEN << "Start Gradient after Calling it again: " << cp.gradient().norm()<<RESET<<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy()<<std::endl;
-    cp.setVars(goal);
-    std::cout << GREEN << "Goal Gradient after Calling it again " << cp.gradient().norm()<<RESET <<" Energy: " << cp.energy() <<" contact Energy: " << cp.contactEnergy()<<std::endl;
-
-    cp.setVars(path[7]);
-    std::cout << RED << "Difference between cp.gradient() and cp.gradient(true): "<<(cp.gradient() -  cp.gradient(true)).norm() << RESET << std::endl;
-    
-    //recenter data. otherwise the knot is shifted in 3d space
-    Eigen::Vector3d start_centroid(0,0,0);
-    Eigen::Vector3d goal_centroid(0,0,0);
-    for (size_t i = 0; i < n_pts; ++i) {
-        start_centroid += start.segment<3>(3*i);
-        goal_centroid += goal.segment<3>(3*i);
-    }
-    start_centroid /= n_pts;
-    goal_centroid /= n_pts;
-
-    // 2. Subtract centroid from each point
-    for (size_t i = 0; i < n_pts; ++i) {
-        start.segment<3>(3*i) -= start_centroid;
-        goal.segment<3>(3*i) -= goal_centroid;
-    }
-    cp.setVars(start);
-    cp.updateCachedVars();
-    std::cout << GREEN << "Start Gradient after Centering: " << cp.gradient().norm()<<" Energy: " << cp.energy() <<RESET<<std::endl;
-    cp.setVars(goal);
-    cp.updateCachedVars();
-    std::cout << GREEN << "Goal Gradient after Centering: " << cp.gradient().norm() <<" Energy: " << cp.energy()<<RESET<<std::endl;
-    
-
-    //put the true mins in the path
-    path.emplace_back(goal);
-    path.insert(path.begin(), start);
-    */
-
-
-    //minimize twist
-    /*
-    for (size_t i = 0; i<path.size(); ++i){
-        cp.setVars(path[i]);
-        minimize_twist(*cp.m_rods.getRod(0));
-    }
-    */
-
     //matricies of path and its gradient
     RowMatrix pathMatrix = listToMatrix(path);
-    RowMatrix gradientMatrix(path.size(), path[0].size());
 
     static int iterations = 1000;
     static double stepsize = 0.001;
@@ -197,7 +121,20 @@ int main(int argc, char** argv) {
         ImGui::Checkbox("Global NEB Gradient", &globalNeb);
         ImGui::Checkbox("Use climbing Image", &climbingImage);
 
+        if(ImGui::Button("Relax start and goal")){
+            auto start = path[0];
+            auto goal = path.back();
+            relax_start_goal(cp, start, goal);
 
+            path.insert(path.begin(), start);
+            path.push_back(goal);
+            Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
+
+            pathMatrix = listToMatrix(path);
+            F_neb.resize(path.size(), Eigen::VectorXd::Zero(path[0].size()));
+            d_search.resize(path.size(), Eigen::VectorXd::Zero(path[0].size()));
+            
+        }
         if (ImGui::Button("Optimize Path")) {
             running=true;
             it=0;

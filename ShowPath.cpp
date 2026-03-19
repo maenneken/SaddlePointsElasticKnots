@@ -148,6 +148,15 @@ int main(int argc, char** argv) {
             cp.setVars(path[path_idx]);
             printNumNegEigenvalues(cp);
         }
+        if(ImGui::Button("Relax start and goal")){
+            auto start = path[0];
+            auto goal = path.back();
+            relax_start_goal(cp, start, goal);
+
+            path.insert(path.begin(), start);
+            path.push_back(goal);
+            
+        }
         if(ImGui::Button("Save all Knots with neg eigenvalue")){
             savePathTxt("negativeEigenvalues.txt",Knots_with_neg_eigenvalues);
         }
