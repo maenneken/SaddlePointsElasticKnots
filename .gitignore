@@ -13,4 +13,5 @@ __pycache__
 bin/
 .vs/
 .vscode/
-data/
+data/CubicLatticeKnots
+data/L400-r0.2-UpTo9Crossings
