@@ -196,6 +196,13 @@ add_executable(OptimizePath
     KnotVisualizer.cpp
 )
 
+add_executable(CreatePCAdataset
+    createPCAdataset.cpp
+    PCA.cpp
+    helpers.cpp
+    KnotVisualizer.cpp
+)
+
 
 find_package(nanoflann REQUIRED)
 
@@ -205,6 +212,7 @@ target_link_libraries(SmashKnot PRIVATE polyscope ElasticKnots)
 target_link_libraries(FindPath PRIVATE polyscope ElasticKnots nanoflann::nanoflann)
 target_link_libraries(ShowPath PRIVATE polyscope ElasticKnots)
 target_link_libraries(OptimizePath PRIVATE polyscope ElasticKnots)
+target_link_libraries(CreatePCAdataset PRIVATE polyscope ElasticKnots)
 
 
 

@@ -5,7 +5,7 @@
 #include <string>
 
 std::vector<Eigen::VectorXd> removeTwist(const std::vector<Eigen::VectorXd> &data);
-
+std::vector<Eigen::VectorXd> createDataset(std::string folder,  int reductionFactor);
 class PCA
 {
 public:

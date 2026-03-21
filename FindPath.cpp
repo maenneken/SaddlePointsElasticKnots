@@ -46,13 +46,12 @@ int main(int argc, char** argv) {
     // Read centerline nodes
     std::vector<Eigen::Vector3d> start_centerline = reduce_knot_resolution(read_nodes_from_file(start_file), reductionFactor);
     std::vector<Eigen::Vector3d> goal_centerline = reduce_knot_resolution(read_nodes_from_file(goal_file), reductionFactor);
-    for (size_t i = 0; i < goal_centerline.size(); ++i){
+    for (size_t i = 0; i < start_centerline.size(); ++i){
+        start_centerline[i][0] *= 1;
+        start_centerline[i][1] *= 1;
         start_centerline[i][2] *= 1;
     }
-    for (size_t i = 0; i < goal_centerline.size(); ++i){
-        start_centerline[i][0] *= 1;
-    }
-
+   
 
     int n_pts = start_centerline.size();  
 

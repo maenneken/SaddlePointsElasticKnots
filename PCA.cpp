@@ -82,10 +82,10 @@ std::vector<Eigen::VectorXd> createDataset(std::string folder,  int reductionFac
     for (size_t i = 0; i< cubic_knots.size();++i){
         cp.setVars(cubic_knots[i]);
         std::cout << "relaxing Knot: " << i << std::endl;
-        for (size_t j = 0; j < 100000; ++j){
+        for (size_t j = 0; j < 10000; ++j){
             Eigen::VectorXd current = cp.getVars();
-            Eigen::VectorXd g = cp.gradient();
-            current -= 0.001 * g;
+            Eigen::VectorXd g = cp.gradient(true);
+            current -= 0.0001 * g;
             cp.setVars(current);
         }
         relaxed_knots.emplace_back(cp.getVars());
