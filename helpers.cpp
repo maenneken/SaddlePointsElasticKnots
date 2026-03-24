@@ -266,7 +266,7 @@ HessianAndGradient insertInBiggerHg(Eigen::MatrixXd & H_big, Eigen::VectorXd& g_
 }
 
 void savePathTxt(const std::string& filename,
-                 const std::vector<Eigen::VectorXd>& path){
+                 const std::vector<Eigen::VectorXd>& path, const std::string& header) {
     std::ofstream out(filename);
     if (!out.is_open()) {
         throw std::runtime_error("Could not open file: " + filename);
@@ -276,7 +276,8 @@ void savePathTxt(const std::string& filename,
     out << "# num_vectors " << path.size() << "\n";
     if (!path.empty())
         out << "# vector_size " << path[0].size() << "\n";
-
+    if (!header.empty())
+        out << "# " << header << "\n";
     for (size_t i = 0; i < path.size(); ++i) {
         const Eigen::VectorXd& v = path[i];
         for (int j = 0; j < v.size(); ++j) {

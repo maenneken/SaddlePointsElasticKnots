@@ -45,7 +45,7 @@ Eigen::SparseMatrix<double> computeHessian(ContactProblem& cp);
 std::vector<Eigen::Vector3d> reduce_knot_resolution(std::vector<Eigen::Vector3d> pts, size_t factor);
 HessianAndGradient makeSmaller(Eigen::MatrixXd &H , Eigen::VectorXd& g, size_t k);
 HessianAndGradient insertInBiggerHg(Eigen::MatrixXd & H_big, Eigen::VectorXd& g_big, Eigen::MatrixXd & H_small, Eigen::VectorXd& g_small);
-void savePathTxt(const std::string& filename, const std::vector<Eigen::VectorXd>& path);
+void savePathTxt(const std::string& filename, const std::vector<Eigen::VectorXd>& path, const std::string& header = "");
 std::vector<Eigen::VectorXd>loadPathTxt(const std::string& filename);
 void showPath(std::vector<Eigen::VectorXd>& path, ContactProblem& cp, KnotVisualizer& Viewer);
 void relax_start_goal(ContactProblem& cp, Eigen::VectorXd& start_dofs,  Eigen::VectorXd& goal_dofs);

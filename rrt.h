@@ -77,11 +77,17 @@ class RRT{
         double rotation_bias = 0.1;
         double gradient_bias = 0.1;
         size_t proj_dim = 15;
+        size_t sample_proj_dim = 30;
+        bool goal_bias_for_all_permutations = false;
+        bool sample_in_projection_space = false;
+        bool use_constraint_projection_for_sampling = false;
+        bool reproject_direction = false;
 
     private:
         double min_val;
         double max_val;
         size_t n_dofs;
+        size_t n_permutations = 0;
         
         PCA pca;
         

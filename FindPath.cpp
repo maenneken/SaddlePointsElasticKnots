@@ -103,10 +103,26 @@ int main(int argc, char** argv) {
 
 
 
-   
+    std::string pcaFile;
+    int multiplier = 1;
 
+    if(n_pts == 25){
+        pcaFile = "../data/PCA/25V_Dataset.txt";
+    }
+    else if(n_pts == 50){
+        pcaFile = "../data/PCA/50V_Dataset.txt";
+        multiplier = 2;
+    }
+    else if(n_pts == 100){
+        pcaFile = "../data/PCA/100V_Dataset.txt";
+        multiplier = 4;
+    }
+    else{
+        throw std::runtime_error("No PCA file for this number of vertices");
+    }
+    
 
-    TreeVisualizer Viewer = TreeVisualizer();
+    TreeVisualizer Viewer = TreeVisualizer(pcaFile);
     Viewer.setKnot(DoFsToPos(start_dofs,n_pts),0.01 * rod_radius);
 
     //show the goal state
@@ -117,12 +133,17 @@ int main(int argc, char** argv) {
     static int iterations = 5000;
     static int pruningInterval = 1000;
     static double maxEnergy = std::max({start_energy,goal_energy})*2 +1;
-    static double stepsize = 1;
-    static double steplength = 40;
+    static double stepsize = 1 * multiplier;
+    static double steplength = 40 * multiplier;
     static double goalBias = 0.2;
     static bool oneRandDirection = false;
     static bool allPermutations = true;
-    static double neighbor_radius = 10;
+    static double neighbor_radius = 10 * multiplier;
+    static bool goal_bias_for_all_permutations = false;
+    static bool sample_in_projection_space = false;
+    static bool use_constraint_projection_for_sampling = true;
+    static bool reproject_direction = false;
+    static int sample_proj_dim = 30;
 
    
     bool running = false;
@@ -139,8 +160,14 @@ int main(int argc, char** argv) {
         ImGui::InputDouble("stepLength", &steplength,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("goal Bias", &goalBias,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("neighbor radius", &neighbor_radius,(0.1),(0.1),"%.4f");
+        ImGui::InputInt("sample projection dimension", &sample_proj_dim,1,10);
         ImGui::Checkbox("oneRandDirection", &oneRandDirection);
         ImGui::Checkbox("all Permutations of start and goal", &allPermutations);
+        ImGui::Checkbox("goal bias for all permutations", &goal_bias_for_all_permutations);
+        ImGui::Checkbox("sample in projection space", &sample_in_projection_space);
+        ImGui::Checkbox("use constraint projection for sampling", &use_constraint_projection_for_sampling);
+        ImGui::Checkbox("reproject direction", &reproject_direction);
+
     
         
 
@@ -160,7 +187,8 @@ int main(int argc, char** argv) {
             show_path=true;
         }
         if (ImGui::Button("Save Path")) {
-            savePathTxt("foundPath.txt",path);
+            std::string header = "Stepsize: " + std::to_string(stepsize) + ", StepLength: " + std::to_string(steplength) + ", GoalBias: " + std::to_string(goalBias) + ", NeighborRadius: " + std::to_string(neighbor_radius) + ", SampleProjDim: " + std::to_string(sample_proj_dim) + ", OneRandDirection: " + std::to_string(oneRandDirection) + ", AllPermutations: " + std::to_string(allPermutations) + ", GoalBiasForAllPermutations: " + std::to_string(goal_bias_for_all_permutations) + ", SampleInProjectionSpace: " + std::to_string(sample_in_projection_space) + ", UseConstraintProjectionForSampling: " + std::to_string(use_constraint_projection_for_sampling) + ", ReprojectDirection: " + std::to_string(reproject_direction);
+            savePathTxt("foundPath.txt",path, header);
         }
 
   
@@ -179,7 +207,13 @@ int main(int argc, char** argv) {
             rrt.step_length = steplength;
             rrt.radius = neighbor_radius;
             rrt.one_rand_direction_3d = oneRandDirection;
+            rrt.goal_bias_for_all_permutations = goal_bias_for_all_permutations;
+            rrt.sample_in_projection_space = sample_in_projection_space;
+            rrt.use_constraint_projection_for_sampling = use_constraint_projection_for_sampling;
+            rrt.reproject_direction = reproject_direction;
+            rrt.sample_proj_dim = sample_proj_dim;
 
+            std::cout << "Starting RRT with " << iterations << " iterations" << std::endl;
             Viewer.setTree(rrt.start_tree, rrt.goal_tree);
             path = rrt.findConstrainedPath(cp,iterations,Viewer);
             //path = rrt.findPath(cp,iterations,Viewer);

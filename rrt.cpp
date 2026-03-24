@@ -96,8 +96,8 @@ RRT::RRT(const Eigen::VectorXd& start,
 
     start_tree.emplace_back(start_vertex);
     goal_tree.emplace_back(goal_vertex);
-    start_weight.emplace_back(1);
-    goal_weight.emplace_back(1);
+    start_weight.emplace_back(1.0);
+    goal_weight.emplace_back(1.0);
 
    
     
@@ -111,6 +111,7 @@ RRT::RRT(const Eigen::VectorXd& start,
     max_val = std::max(start.maxCoeff(), goal.maxCoeff()) + 10;
 
     n_dofs = start.size();
+    n_permutations = start_tree.size();
 }
 //prunes all leafs
 //weights need to be recalulated
@@ -198,29 +199,48 @@ Eigen::VectorXd RRT::sampleRandDirection(ContactProblem& cp,const Eigen::VectorX
         //goalBias
         if (uniform01() < goal_bias){
             randDirection = goal_short - current_config_short;
-        } 
+
+        //sample in PCA space
+        } else if (sample_in_projection_space){
+            auto projection = pca.project(current_config,sample_proj_dim);
+            Eigen::VectorXd rand_proj = Eigen::VectorXd::Random(sample_proj_dim);
+            projection += rand_proj;
+            randDirection = pca.reconstruct(projection,sample_proj_dim) - current_config_short;
+        }
         else {
             randDirection = Eigen::VectorXd::Random(n_pts);
         }
     }
 
     
-    
-    //stretch and bend seem to be enough 
-    Eigen::SparseMatrix<double> J = stackJacobians(stretchJacobian(current_config_short),bendJacobian(current_config_short));
+    if(use_constraint_projection_for_sampling){
+        //project to constraint space to preserve constraints
+        //stretch and bend seem to be enough 
+        Eigen::SparseMatrix<double> J = stackJacobians(stretchJacobian(current_config_short),bendJacobian(current_config_short));
 
-    //force rotation
-    if (uniform01() < rotation_bias){
-        J = J = stackJacobians(J,twistJacobian(current_config_short));
+        //force rotation
+        if (uniform01() < rotation_bias){
+            J = J = stackJacobians(J,twistJacobian(current_config_short));
+        }
+    
+
+        Eigen::VectorXd projectedDirection = projectToTangentSpace(J,randDirection);
+        randDirection = projectedDirection;
     }
-    
+    //proj to pca space and back to remove noise
+    if(reproject_direction){
+        Eigen::VectorXd  proj_step = current_config_short + randDirection.normalized() * step_length;
+        Eigen::VectorXd  reprojected_proj_step = pca.reconstruct(pca.project(proj_step,sample_proj_dim),sample_proj_dim);
+       randDirection = reprojected_proj_step - current_config_short;
+    }
 
-    Eigen::VectorXd projectedDirection = Eigen::VectorXd::Zero(n_dofs);
-    projectedDirection.head(n_pts) = projectToTangentSpace(J,randDirection);
+    Eigen::VectorXd fullRandomDirection = Eigen::VectorXd::Zero(n_dofs);
+    fullRandomDirection.head(n_pts) = randDirection;
 
-    return projectedDirection;
 
+    return fullRandomDirection;    
 }
+
 void RRT::buildKDTrees(){
     std::cout << "RRT::buildKDTrees() called" << std::endl;
     std::cout << "start_tree.size() = " << start_tree.size() 
@@ -544,8 +564,12 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
     for(size_t i = 0; i < iterations; ++i){
         //switch between the two trees to expand them
         for(size_t t = 0; t < 2; ++ t){
+            size_t goal_id = 0;
+            if(goal_bias_for_all_permutations){
+                size_t goal_id = static_cast<size_t>(uniform01() * n_permutations); //random goal Knot
+            }
             
-            Eigen::VectorXd goal = (*trees[1 - t])[0].config;
+            Eigen::VectorXd goal = (*trees[1 - t])[goal_id].config;
             Eigen::VectorXd start = (*trees[t])[0].config;
 
             size_t config_id = 0;
@@ -608,8 +632,15 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             cp.setVars(start_tree[nearest_goal].config);
             std::cout << "nearest Vertex to goal is: " << nearest_goal << " with distance " << (start_tree[nearest_goal].config - goal_tree[0].config).norm() << " and Energy: " <<cp.energy()<<" Contact Energy: "<< cp.contactEnergy() << std::endl;
             auto nearest_start = kNearestNeighbor(start_tree[0].projection,*goal_kd_tree, 1)[0];
-            std::cout << "nearest Vertex to start is: " << nearest_start << " with distance " << (goal_tree[nearest_start].config - start_tree[0].config).norm() <<  std::endl;
+            // std::cout << "nearest Vertex to start is: " << nearest_start << " with distance " << (goal_tree[nearest_start].config - start_tree[0].config).norm() <<  std::endl;
+            // std::cout << "highest weight in start tree: " << *std::max_element(start_weight.begin(), start_weight.end()) << std::endl;
+            // std::cout << "lowest weight in start tree: " << *std::min_element(start_weight.begin(), start_weight.end()) << std::endl;
+            // std::cout << "highest weight in goal tree: " << *std::max_element(goal_weight.begin(), goal_weight.end()) << std::endl;
+            // std::cout << "lowest weight in goal tree: " << *std::min_element(goal_weight.begin(), goal_weight.end()) << std::endl;
+            // auto pca_pts = pca.reconstruct(start_tree[nearest_goal].projection,proj_dim);
+            // auto pts = DoFsToPos(pca_pts,0.25*n_dofs);
             auto pts = DoFsToPos(start_tree[nearest_goal].config,0.25*n_dofs);
+            
             Viewer.updateKnot(pts); 
             auto direction_to_goal = DoFsToPos(goal_tree[0].config - start_tree[nearest_goal].config,0.25*n_dofs);
             Viewer.showNodeGradient(direction_to_goal);
