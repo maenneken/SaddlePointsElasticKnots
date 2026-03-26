@@ -41,7 +41,7 @@ using KDTree = nanoflann::KDTreeSingleIndexAdaptor<
 
 class RRT{
     public:
-        RRT(const Eigen::VectorXd& start, const Eigen::VectorXd& goal,PCA _pca,bool all_permutations = true);
+        RRT(const Eigen::VectorXd& start, const Eigen::VectorXd& goal,PCA _pca,bool all_permutations = true, size_t _every_k_permutation = 1);
         void add_all_permutations(const Eigen::VectorXd& start, const Eigen::VectorXd& goal);
         std::vector<rrt_vertex> pruneAllLeafNodes(std::vector<rrt_vertex>& tree);
         Eigen::VectorXd sampleRandConfig(ContactProblem& cp, const Eigen::VectorXd& goal, const std::vector<rrt_vertex>& tree);
@@ -82,6 +82,8 @@ class RRT{
         bool sample_in_projection_space = false;
         bool use_constraint_projection_for_sampling = false;
         bool reproject_direction = false;
+        size_t every_k_permutation = 1;
+        double max_rod_energy = 30000;
 
     private:
         double min_val;

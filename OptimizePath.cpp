@@ -76,12 +76,12 @@ int main(int argc, char** argv) {
 
     static int iterations = 1000;
     static double stepsize = 0.001;
-    static double max_step = 0.1;
-    static double spring_constant = 1;
+    static double max_step = 1;
+    static double spring_constant = 100;
     int path_idx = 0;
     int old_idx = 0;
-    bool globalNeb = false;
-    bool climbingImage = true;
+    bool globalNeb = true;
+    bool climbingImage = false;
 
     //find id of max energy in path
     size_t max_id = find_max_energy(cp,path);
@@ -143,6 +143,7 @@ int main(int argc, char** argv) {
             show_path=true;
         }
         if (ImGui::Button("Save Path")) {
+            std::string header = "Iterations: " + std::to_string(iterations) + ", stepsize: " + std::to_string(stepsize) + ", max step size: " + std::to_string(max_step) + ", spring constant: " + std::to_string(spring_constant) + ", global NEB: " + (globalNeb ? "true" : "false") + ", climbing image: " + (climbingImage ? "true" : "false");
             savePathTxt("optimized.txt",path);
         }
 

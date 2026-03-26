@@ -40,7 +40,7 @@ Eigen::VectorXd shiftPosIndcies(const Eigen::VectorXd& dofs){
 }
 void RRT::add_all_permutations(const Eigen::VectorXd& start, const Eigen::VectorXd& goal){
     size_t n_pts = start.size()/4;
-    for(size_t i = 0; i < n_pts -1; ++i){
+    for(size_t i = 0; i < n_pts -1; i+= every_k_permutation){
         rrt_vertex current = start_tree.back();
         rrt_vertex start_shifted(shiftPosIndcies(current.config),-1);
         start_shifted.projection = pca.project(current.config,proj_dim);   
@@ -63,7 +63,7 @@ void RRT::add_all_permutations(const Eigen::VectorXd& start, const Eigen::Vector
     start_tree.emplace_back(start_backwards);
     goal_tree.emplace_back(goal_backwards);
 
-    for(size_t i = 0; i < n_pts -1; ++i){
+    for(size_t i = 0; i < n_pts -1; i+= every_k_permutation){
         rrt_vertex current = start_tree.back();
         rrt_vertex start_shifted(shiftPosIndcies(current.config),-1);
         start_shifted.projection = pca.project(current.config,proj_dim);
@@ -82,7 +82,9 @@ void RRT::add_all_permutations(const Eigen::VectorXd& start, const Eigen::Vector
 
 RRT::RRT(const Eigen::VectorXd& start,
          const Eigen::VectorXd& goal,
-         PCA _pca, bool all_permutations){
+         PCA _pca, bool all_permutations,
+         size_t _every_k_permutation
+         ) {
 
     assert(start.size() == goal.size() && "start and goal must have same dimension");
 
@@ -99,8 +101,8 @@ RRT::RRT(const Eigen::VectorXd& start,
     start_weight.emplace_back(1.0);
     goal_weight.emplace_back(1.0);
 
-   
-    
+    every_k_permutation = _every_k_permutation;
+
     //add all permutation of start and goal to the trees
     if(all_permutations){
         add_all_permutations(start,goal);
@@ -473,6 +475,26 @@ void RRT::expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& go
         new_vertex.projection = pca.project(new_config,proj_dim);
         tree.emplace_back(new_vertex);
         weights.emplace_back(1.0);
+
+        // cp.setVars(new_config);
+        // //relax if energy is to high
+        // if(cp.energy() > max_rod_energy){
+
+        //     auto optimizerOptions = NewtonOptimizerOptions();
+        //     optimizerOptions.niter = 1000;
+        //     optimizerOptions.gradTol =  1e-3;
+
+        //     auto problemOptions = cp.m_options;
+
+        //     compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions);
+        //     cp.updateCachedVars();
+    
+        //     Eigen::VectorXd relaxed =  cp.getVars();
+        //     rrt_vertex relaxed_vertex(relaxed,tree.size()-1);
+        //     relaxed_vertex.projection = pca.project(relaxed,proj_dim);
+        //     tree.emplace_back(relaxed_vertex);
+        //     weights.emplace_back(1.0);
+        // }
     }
     updateNeighboringWeights(config, tree, weights,kd_tree, radius);
 }

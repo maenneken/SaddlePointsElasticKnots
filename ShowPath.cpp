@@ -112,6 +112,9 @@ int main(int argc, char** argv) {
     int sleep_mil = 0;
     double step_size = 0.5;
     int intersecion_counter = 0;
+    bool calk_eigenvalues = false;
+    std::vector<Eigen::VectorXd> possibleSelfIntersections;
+
     Viewer.setUserCallback([&]() {
         ImGui::Begin("Controls");
         ImGui::PushItemWidth(200);
@@ -134,15 +137,19 @@ int main(int argc, char** argv) {
                                 << GREEN << ", Gradient: " << cp.gradient().norm() << RESET
                                 << ", Position: " << cp.getVars().head(3*n_pts).norm()
                                 << ", Twist: " << cp.getVars().tail(n_pts+1).norm()<< std::endl;
-
-            printNumNegEigenvalues(cp);
+            if(calk_eigenvalues){
+                printNumNegEigenvalues(cp);
+            }
             old_idx = path_idx;
         } 
 
         ImGui::InputInt("sleep between frame", &sleep_mil);
         ImGui::InputDouble("step size", &step_size);
+        ImGui::Checkbox("Calk eigenvalues", &calk_eigenvalues);
         if(ImGui::Button("show interpolated path")){
             show_path=true;
+            possibleSelfIntersections.clear();
+            intersecion_counter = 0;
         }
         if(ImGui::Button("Calk Num neg Eigenvalues")){
             cp.setVars(path[path_idx]);
@@ -157,6 +164,17 @@ int main(int argc, char** argv) {
             path.push_back(goal);
             
         }
+        if(ImGui::Button("Find possible selfintersections")){
+            if(!possibleSelfIntersections.empty()){
+
+                path = possibleSelfIntersections;
+                show_path=true;
+                step_size *= 0.1;
+                possibleSelfIntersections.clear();
+                intersecion_counter = 0;
+            }
+            
+        }
         if(ImGui::Button("Save all Knots with neg eigenvalue")){
             savePathTxt("negativeEigenvalues.txt",Knots_with_neg_eigenvalues);
         }
@@ -167,10 +185,11 @@ int main(int argc, char** argv) {
 
     });
     
+ 
     //main loop
     while (!polyscope::windowRequestsClose()) { 
         if(show_path){
-            for( size_t i = path_idx; i< path.size()-1;++i){
+            for(size_t i = path_idx; i< path.size()-1;++i){
                 Eigen::VectorXd direction = path[i+1] - path[i];
                 direction.normalize();
                 auto current = path[i];
@@ -186,7 +205,7 @@ int main(int argc, char** argv) {
                                 << ", Twist: " << cp.getVars().tail(n_pts+1).norm()
                                 << std::endl;
 
-                    if(printNumNegEigenvalues(cp)>0){
+                    if(calk_eigenvalues && printNumNegEigenvalues(cp) > 0){
                         Knots_with_neg_eigenvalues.push_back(current);
                     }
                     
@@ -194,6 +213,7 @@ int main(int argc, char** argv) {
 
                     if(cp.contactEnergy() > 1000){
                         std::cout << RED << "possible selfintersection at " << i <<  RESET << std::endl;
+                        possibleSelfIntersections.push_back(current);
                         ++intersecion_counter;
                     }
                     Viewer.updateKnot(DoFsToPos(current, n_pts));

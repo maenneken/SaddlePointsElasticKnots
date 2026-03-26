@@ -90,10 +90,10 @@ int main(int argc, char** argv) {
     
 
     double start_energy = cp.contactEnergy();
-    std::cout << "Start contact Energy: " << cp.contactEnergy()<< std::endl;
+    std::cout << "Start contact Energy: " << cp.contactEnergy() << "Rod Energy: " << cp.energy() << std::endl;
     cp.setVars(goal_dofs);
     double goal_energy = cp.contactEnergy();
-    std::cout << "Goal contact Energy: " << cp.contactEnergy()<< std::endl;
+    std::cout << "Goal contact Energy: " << cp.contactEnergy()<< "Rod Energy: " << cp.energy() << std::endl;
 
     double edgeLength = (start_dofs.segment<3>(0) - start_dofs.segment<3>(3)).norm();
     std::cout << "Start Knot Edge length: " << edgeLength <<std::endl;
@@ -144,6 +144,8 @@ int main(int argc, char** argv) {
     static bool use_constraint_projection_for_sampling = true;
     static bool reproject_direction = false;
     static int sample_proj_dim = 30;
+    static int every_k_permutation = 1;
+    static double max_rod_energy = 30000;
 
    
     bool running = false;
@@ -161,6 +163,9 @@ int main(int argc, char** argv) {
         ImGui::InputDouble("goal Bias", &goalBias,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("neighbor radius", &neighbor_radius,(0.1),(0.1),"%.4f");
         ImGui::InputInt("sample projection dimension", &sample_proj_dim,1,10);
+        ImGui::InputInt("every k permutation", &every_k_permutation,1,10);
+        ImGui::InputDouble("max rod energy", &max_rod_energy,(0.001),(1),"%.2f");
+
         ImGui::Checkbox("oneRandDirection", &oneRandDirection);
         ImGui::Checkbox("all Permutations of start and goal", &allPermutations);
         ImGui::Checkbox("goal bias for all permutations", &goal_bias_for_all_permutations);
@@ -199,7 +204,7 @@ int main(int argc, char** argv) {
     while (!polyscope::windowRequestsClose()) { 
         Viewer.frameTick();
         if(running){
-            RRT rrt(start_dofs, goal_dofs, Viewer.pca, allPermutations);
+            RRT rrt(start_dofs, goal_dofs, Viewer.pca, allPermutations,every_k_permutation);
             rrt.goal_bias = goalBias;
             rrt.max_energy = maxEnergy;
             rrt.pruning_interval = pruningInterval;
@@ -212,6 +217,7 @@ int main(int argc, char** argv) {
             rrt.use_constraint_projection_for_sampling = use_constraint_projection_for_sampling;
             rrt.reproject_direction = reproject_direction;
             rrt.sample_proj_dim = sample_proj_dim;
+            rrt.max_rod_energy = max_rod_energy;
 
             std::cout << "Starting RRT with " << iterations << " iterations" << std::endl;
             Viewer.setTree(rrt.start_tree, rrt.goal_tree);
