@@ -14,9 +14,12 @@ public:
     Eigen::VectorXd project(const Eigen::VectorXd& v, int k = 3);
     Eigen::VectorXd reconstruct(const Eigen::VectorXd& y, int k);
     double dist(const Eigen::VectorXd& x, const Eigen::VectorXd& y, int k = 3);
+
+    bool whiten = false; // whether to apply whitening to the projected data
     
 private:
     Eigen::RowVectorXd mean;
     Eigen::MatrixXd components;
     size_t data_dim;
+    Eigen::VectorXd inv_sqrt_variances; // for whitening
 };

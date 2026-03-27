@@ -73,7 +73,7 @@ class RRT{
         size_t pruning_interval = 1000;
         bool one_rand_direction_3d = false;
         double radius = 10;
-        size_t k_neighbors = 10;
+        size_t k_neighbors = 10; //for goal bias 
         double rotation_bias = 0.1;
         double gradient_bias = 0.1;
         size_t proj_dim = 15;
@@ -84,7 +84,7 @@ class RRT{
         bool reproject_direction = false;
         size_t every_k_permutation = 1;
         double max_rod_energy = 30000;
-
+        bool start_with_rotation = false;
     private:
         double min_val;
         double max_val;

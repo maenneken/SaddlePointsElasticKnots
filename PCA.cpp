@@ -138,7 +138,13 @@ void PCA::fit(const std::vector<Eigen::VectorXd>& samples){
     auto singular_values = svd.singularValues();
 
     // compute explained variance
-    Eigen::VectorXd var = singular_values.array().square();
+    int n = centered.rows();
+    Eigen::VectorXd var = singular_values.array().square() / (n - 1);
+
+    //store for whitening
+    double eps = 1e-8;
+    inv_sqrt_variances = (var.array() + eps).rsqrt();
+
 
     double total_var = var.sum();
 
@@ -149,6 +155,7 @@ void PCA::fit(const std::vector<Eigen::VectorXd>& samples){
               << variance_ratio(i) * 100
               << "%\n";
     }
+    std::cout << "Whitening scales:\n" << inv_sqrt_variances.transpose() << std::endl;
 }
 
 Eigen::VectorXd PCA::project(const Eigen::VectorXd& v, int k){
@@ -159,7 +166,14 @@ Eigen::VectorXd PCA::project(const Eigen::VectorXd& v, int k){
         centered = v - mean.transpose();
     }
     //centered.normalize();
-    return components.leftCols(k).transpose() * centered;
+    Eigen::VectorXd z = components.leftCols(k).transpose() * centered;
+
+    //whitening
+    if(whiten){
+        z = z.array() * inv_sqrt_variances.head(k).array();
+    }
+
+    return z;
 }
 
 Eigen::VectorXd PCA::reconstruct(const Eigen::VectorXd& y, int k){

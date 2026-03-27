@@ -138,7 +138,7 @@ int main(int argc, char** argv) {
     static double goalBias = 0.2;
     static bool oneRandDirection = false;
     static bool allPermutations = true;
-    static double neighbor_radius = 10 * multiplier;
+    static double neighbor_radius = 10;
     static bool goal_bias_for_all_permutations = false;
     static bool sample_in_projection_space = false;
     static bool use_constraint_projection_for_sampling = true;
@@ -146,6 +146,11 @@ int main(int argc, char** argv) {
     static int sample_proj_dim = 30;
     static int every_k_permutation = 1;
     static double max_rod_energy = 30000;
+    static int k_neighbors = 10;
+    static bool start_with_rotation = false;
+    static double rotation_bias = 0.1;
+    static double gradient_bias = 0.1;
+    static bool pca_data_whitening = false;
 
    
     bool running = false;
@@ -161,10 +166,14 @@ int main(int argc, char** argv) {
         ImGui::InputDouble("stepsize", &stepsize,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("stepLength", &steplength,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("goal Bias", &goalBias,(0.001),(0.01),"%.4f");
+        ImGui::InputDouble("rotation bias", &rotation_bias,(0.001),(1),"%.4f");
+        ImGui::InputDouble("gradient bias", &gradient_bias,(0.001),(1),"%.4f");
         ImGui::InputDouble("neighbor radius", &neighbor_radius,(0.1),(0.1),"%.4f");
         ImGui::InputInt("sample projection dimension", &sample_proj_dim,1,10);
         ImGui::InputInt("every k permutation", &every_k_permutation,1,10);
         ImGui::InputDouble("max rod energy", &max_rod_energy,(0.001),(1),"%.2f");
+        ImGui::InputInt("k neighbors for goal bias", &k_neighbors,1,100);
+
 
         ImGui::Checkbox("oneRandDirection", &oneRandDirection);
         ImGui::Checkbox("all Permutations of start and goal", &allPermutations);
@@ -172,6 +181,8 @@ int main(int argc, char** argv) {
         ImGui::Checkbox("sample in projection space", &sample_in_projection_space);
         ImGui::Checkbox("use constraint projection for sampling", &use_constraint_projection_for_sampling);
         ImGui::Checkbox("reproject direction", &reproject_direction);
+        ImGui::Checkbox("start with rotation", &start_with_rotation);
+        ImGui::Checkbox("PCA data whitening", &pca_data_whitening);
 
     
         
@@ -204,6 +215,8 @@ int main(int argc, char** argv) {
     while (!polyscope::windowRequestsClose()) { 
         Viewer.frameTick();
         if(running){
+            Viewer.pca.whiten = pca_data_whitening;
+            
             RRT rrt(start_dofs, goal_dofs, Viewer.pca, allPermutations,every_k_permutation);
             rrt.goal_bias = goalBias;
             rrt.max_energy = maxEnergy;
@@ -218,11 +231,15 @@ int main(int argc, char** argv) {
             rrt.reproject_direction = reproject_direction;
             rrt.sample_proj_dim = sample_proj_dim;
             rrt.max_rod_energy = max_rod_energy;
+            rrt.k_neighbors = k_neighbors;
+            rrt.start_with_rotation = start_with_rotation;
+            rrt.rotation_bias = rotation_bias;
+            rrt.gradient_bias = gradient_bias;
+
 
             std::cout << "Starting RRT with " << iterations << " iterations" << std::endl;
             Viewer.setTree(rrt.start_tree, rrt.goal_tree);
             path = rrt.findConstrainedPath(cp,iterations,Viewer);
-            //path = rrt.findPath(cp,iterations,Viewer);
 
             std::cout << "Found a path of size: " << path.size() << std::endl; 
             showPath(path,cp,Viewer);

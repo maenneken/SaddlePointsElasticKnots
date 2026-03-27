@@ -583,6 +583,12 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
     std::random_device rd;
     std::mt19937 gen(rd());
     std::cout << "start search" << std::endl;
+
+    if(start_with_rotation){
+        rotation_bias = 1.0;
+    }
+   
+
     for(size_t i = 0; i < iterations; ++i){
         //switch between the two trees to expand them
         for(size_t t = 0; t < 2; ++ t){
@@ -629,6 +635,9 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
         if(connect(cp, 2*step_length)){
             Viewer.setTree(start_tree,goal_tree); 
             return createPath(start_tree.back().config);
+        }
+        if(start_with_rotation && i == 100){
+            rotation_bias = 0.05;
         }
 
         // //pruning the tree   
