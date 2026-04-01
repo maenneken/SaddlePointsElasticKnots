@@ -5,6 +5,8 @@ struct rrt_vertex{
     Eigen::VectorXd config;
     int parent;
     Eigen::VectorXd projection;
+    int unsuccessful_expansions = 0;
+    int successful_expansions = 0;
 
     rrt_vertex(const Eigen::VectorXd& config_, int parent_)
         : config(config_), parent(parent_) {}

@@ -423,6 +423,8 @@ std::vector<Eigen::VectorXd> RRT::createPath(Eigen::VectorXd connection){
 
     std::vector<Eigen::VectorXd> full_path = start_path;
     full_path.insert(full_path.end(), goal_path.begin(), goal_path.end());
+    
+    printTreeQuota();
 
     return full_path;
 
@@ -451,24 +453,29 @@ void RRT::expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& go
     for(size_t i = 0; i < k; ++i){
         Eigen::VectorXd rand_direction = sampleRandDirection(cp, config, goal);
         
-        Eigen::VectorXd desired = config + step_length * rand_direction.normalized();
+        // Eigen::VectorXd desired = config + step_length * rand_direction.normalized();
 
-        size_t nn = radiusNeighbor(pca.project(desired,proj_dim), kd_tree,radius).size();
-        if(nn <=0){
-            nn = 1;
-        }
-        double weight = 1.0 / nn;
+        // size_t nn = radiusNeighbor(pca.project(desired,proj_dim), kd_tree,radius).size();
+        // if(nn <=0){
+        //     nn = 1;
+        // }
+        // double weight = 1.0 / nn;
 
-        // if weight is low it is not that interesting. so skip
-        if(uniform01() > weight){
-            continue;
-        } 
+        // // if weight is low it is not that interesting. so skip
+        // if(uniform01() > weight){
+        //     continue;
+        // } 
         
         //try to go in rand direction
         Eigen::VectorXd new_config  = steerInDirection(cp, config, rand_direction);
 
         //could not step towards it
-        if((new_config - config).squaredNorm() < 1e-8) continue;
+        if((new_config - config).squaredNorm() < 1e-8){
+            tree[config_id].unsuccessful_expansions++;
+            continue;
+
+        } 
+        tree[config_id].successful_expansions++;
 
         //add new to the tree
         rrt_vertex new_vertex(new_config,config_id);
@@ -482,7 +489,7 @@ void RRT::expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& go
 
         //     auto optimizerOptions = NewtonOptimizerOptions();
         //     optimizerOptions.niter = 1000;
-        //     optimizerOptions.gradTol =  1e-3;
+        //     optimizerOptions.gradTol =  1e-6;
 
         //     auto problemOptions = cp.m_options;
 
@@ -500,7 +507,7 @@ void RRT::expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& go
 }
 bool RRT::connect(ContactProblem& cp, double l){
     double l2 = l*l;
-    for ( size_t i = start_tree.size() -1 ; i > start_tree.size() - 11; --i){
+    for ( size_t i = start_tree.size() -1 ; i > start_tree.size() - k_expension; --i){
         rrt_vertex v_start = start_tree[i];
         
         auto nearest = kNearestNeighbor(v_start.projection, *goal_kd_tree, 1);
@@ -535,7 +542,7 @@ bool RRT::connect(ContactProblem& cp, double l){
         }
         
     }
-    for ( size_t i = goal_tree.size() -1 ; i > goal_tree.size() - 11; --i){
+    for ( size_t i = goal_tree.size() -1 ; i > goal_tree.size() - k_expension; --i){
         rrt_vertex v_goal = goal_tree[i];
 
         auto nearest = kNearestNeighbor(v_goal.projection, *start_kd_tree, 1);
@@ -569,6 +576,31 @@ bool RRT::connect(ContactProblem& cp, double l){
         }
     }
     return false;
+}
+void RRT::printTreeQuota(){
+    int start_unsuccessful_expansions = 0;
+    int start_successful_expansions = 0;
+    for (rrt_vertex v: start_tree){
+        start_unsuccessful_expansions += v.unsuccessful_expansions;
+        start_successful_expansions += v.successful_expansions;
+    }
+    int goal_unsuccessful_expansions = 0;
+    int goal_successful_expansions = 0;
+    for (rrt_vertex v: goal_tree){
+        goal_unsuccessful_expansions += v.unsuccessful_expansions;
+        goal_successful_expansions += v.successful_expansions;
+    }
+    double start_expansion_quota = 0.0;
+    if(start_successful_expansions + start_unsuccessful_expansions > 0){
+        start_expansion_quota = static_cast<double>(start_successful_expansions) / (start_successful_expansions + start_unsuccessful_expansions);
+    }
+    double goal_expansion_quota = 0.0;
+    if(goal_successful_expansions + goal_unsuccessful_expansions > 0){
+        goal_expansion_quota = static_cast<double>(goal_successful_expansions) / (goal_successful_expansions + goal_unsuccessful_expansions);
+    }
+    std::cout << "Finished search" << std::endl;
+    std::cout << "start tree: " << start_tree.size() << " vertices, " << start_successful_expansions << " successful expansions and " << start_unsuccessful_expansions << " unsuccessful expansions" << "; successful expansion quota: " << start_expansion_quota <<std::endl;
+    std::cout << "goal tree: " << goal_successful_expansions << " successful expansions and " << goal_unsuccessful_expansions << " unsuccessful expansions" << "; successful expansion quota: " << goal_expansion_quota <<std::endl;
 }
 
 std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t iterations, TreeVisualizer& Viewer){
@@ -625,7 +657,7 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
                 size_t id = static_cast<size_t>(uniform01() * nears.size()); //random near Knot
                 goal = (*trees[1-t])[nears[id]].config;
             }
-            expand(cp,config_id, goal, *trees[t], *weights[t], *kd_trees[t], 10);
+            expand(cp,config_id, goal, *trees[t], *weights[t], *kd_trees[t], k_expension);
         
         } 
         if(i % 10 == 0){
@@ -681,5 +713,6 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
         Viewer.frameTick();  
         
     }
+    printTreeQuota();
     return path;
 }

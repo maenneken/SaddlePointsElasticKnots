@@ -57,6 +57,7 @@ class RRT{
         std::vector<Eigen::VectorXd> createPath(Eigen::VectorXd connection);
         void expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& goal, std::vector<rrt_vertex>& tree,std::vector<double>& weights, KDTree& kd_tree, size_t k);
         bool connect(ContactProblem& cp, double l);
+        void printTreeQuota();
         std::vector<Eigen::VectorXd> findConstrainedPath(ContactProblem& cp, size_t iterations, TreeVisualizer& Viewer);
         
         std::vector<rrt_vertex> start_tree;
@@ -74,6 +75,7 @@ class RRT{
         bool one_rand_direction_3d = false;
         double radius = 10;
         size_t k_neighbors = 10; //for goal bias 
+        size_t k_expension = 1; //number of random directions to sample for each expansion
         double rotation_bias = 0.1;
         double gradient_bias = 0.1;
         size_t proj_dim = 15;

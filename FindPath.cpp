@@ -151,7 +151,7 @@ int main(int argc, char** argv) {
     static double rotation_bias = 0.1;
     static double gradient_bias = 0.1;
     static bool pca_data_whitening = false;
-
+    static int k_expension = 1;
    
     bool running = false;
     bool show_path = false;
@@ -161,7 +161,7 @@ int main(int argc, char** argv) {
         //todo add controls to load a Knot and set up a contactproblem with all options
         ImGui::Begin("Controls");
         ImGui::InputInt("Iterations", &iterations,1000,10000);
-        ImGui::InputInt("Pruning Interval", &pruningInterval,1000,10000);
+        //ImGui::InputInt("Pruning Interval", &pruningInterval,1000,10000);
         ImGui::InputDouble("Max Energy", &maxEnergy,(0.001),(1),"%.2f");
         ImGui::InputDouble("stepsize", &stepsize,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("stepLength", &steplength,(0.001),(0.01),"%.4f");
@@ -171,8 +171,9 @@ int main(int argc, char** argv) {
         ImGui::InputDouble("neighbor radius", &neighbor_radius,(0.1),(0.1),"%.4f");
         ImGui::InputInt("sample projection dimension", &sample_proj_dim,1,10);
         ImGui::InputInt("every k permutation", &every_k_permutation,1,10);
-        ImGui::InputDouble("max rod energy", &max_rod_energy,(0.001),(1),"%.2f");
+        //ImGui::InputDouble("max rod energy", &max_rod_energy,(0.001),(1),"%.2f");
         ImGui::InputInt("k neighbors for goal bias", &k_neighbors,1,100);
+        ImGui::InputInt("k expansion", &k_expension,1,10);
 
 
         ImGui::Checkbox("oneRandDirection", &oneRandDirection);
@@ -216,7 +217,7 @@ int main(int argc, char** argv) {
         Viewer.frameTick();
         if(running){
             Viewer.pca.whiten = pca_data_whitening;
-            
+
             RRT rrt(start_dofs, goal_dofs, Viewer.pca, allPermutations,every_k_permutation);
             rrt.goal_bias = goalBias;
             rrt.max_energy = maxEnergy;
@@ -235,7 +236,7 @@ int main(int argc, char** argv) {
             rrt.start_with_rotation = start_with_rotation;
             rrt.rotation_bias = rotation_bias;
             rrt.gradient_bias = gradient_bias;
-
+            rrt.k_expension = k_expension;
 
             std::cout << "Starting RRT with " << iterations << " iterations" << std::endl;
             Viewer.setTree(rrt.start_tree, rrt.goal_tree);
