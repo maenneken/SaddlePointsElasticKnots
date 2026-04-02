@@ -1,4 +1,5 @@
 #include "rrt.h"
+#include <chrono>
 //create a rrt tree to find the path between to states of the knot
 //use max Energie as constrained. Knots of higher energie do not exists, they are in "collision"
 //create tree from start and from goal knot
@@ -441,8 +442,14 @@ std::vector<double> RRT::updateAllWeights( const std::vector<rrt_vertex>& tree, 
 void RRT::updateNeighboringWeights(const Eigen::VectorXd& config,std::vector<rrt_vertex>& tree,std::vector<double>& weights, const KDTree& kd_tree, double r){
     std::vector<size_t> neighbors = radiusNeighbor(pca.project(config,proj_dim), kd_tree,r);
     for (size_t n: neighbors){
-        double weight = 1.0 / (radiusNeighbor(tree[n].projection, kd_tree, r).size() + 1);
-        weights[n] = weight;
+        double neighbor_weight = 1.0 / (radiusNeighbor(tree[n].projection, kd_tree, r).size() + 1);
+
+        if(tree[n].successful_expansions + tree[n].unsuccessful_expansions == 0){
+            weights[n] = neighbor_weight;
+            continue;
+        }
+        double expansion_weight =  static_cast<double>(tree[n].successful_expansions) / (tree[n].successful_expansions + tree[n].unsuccessful_expansions);
+        weights[n] = neighbor_weight * expansion_weight;
     }
 }
 
@@ -452,19 +459,6 @@ void RRT::expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& go
 
     for(size_t i = 0; i < k; ++i){
         Eigen::VectorXd rand_direction = sampleRandDirection(cp, config, goal);
-        
-        // Eigen::VectorXd desired = config + step_length * rand_direction.normalized();
-
-        // size_t nn = radiusNeighbor(pca.project(desired,proj_dim), kd_tree,radius).size();
-        // if(nn <=0){
-        //     nn = 1;
-        // }
-        // double weight = 1.0 / nn;
-
-        // // if weight is low it is not that interesting. so skip
-        // if(uniform01() > weight){
-        //     continue;
-        // } 
         
         //try to go in rand direction
         Eigen::VectorXd new_config  = steerInDirection(cp, config, rand_direction);
@@ -483,31 +477,12 @@ void RRT::expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& go
         tree.emplace_back(new_vertex);
         weights.emplace_back(1.0);
 
-        // cp.setVars(new_config);
-        // //relax if energy is to high
-        // if(cp.energy() > max_rod_energy){
-
-        //     auto optimizerOptions = NewtonOptimizerOptions();
-        //     optimizerOptions.niter = 1000;
-        //     optimizerOptions.gradTol =  1e-6;
-
-        //     auto problemOptions = cp.m_options;
-
-        //     compute_equilibrium(cp.m_rods,problemOptions,optimizerOptions);
-        //     cp.updateCachedVars();
-    
-        //     Eigen::VectorXd relaxed =  cp.getVars();
-        //     rrt_vertex relaxed_vertex(relaxed,tree.size()-1);
-        //     relaxed_vertex.projection = pca.project(relaxed,proj_dim);
-        //     tree.emplace_back(relaxed_vertex);
-        //     weights.emplace_back(1.0);
-        // }
     }
     updateNeighboringWeights(config, tree, weights,kd_tree, radius);
 }
 bool RRT::connect(ContactProblem& cp, double l){
     double l2 = l*l;
-    for ( size_t i = start_tree.size() -1 ; i > start_tree.size() - k_expension; --i){
+    for ( size_t i = start_tree.size() -1 ; i > start_tree.size() - (k_expension + 1); --i){
         rrt_vertex v_start = start_tree[i];
         
         auto nearest = kNearestNeighbor(v_start.projection, *goal_kd_tree, 1);
@@ -542,7 +517,7 @@ bool RRT::connect(ContactProblem& cp, double l){
         }
         
     }
-    for ( size_t i = goal_tree.size() -1 ; i > goal_tree.size() - k_expension; --i){
+    for ( size_t i = goal_tree.size() -1 ; i > goal_tree.size() - (k_expension + 1); --i){
         rrt_vertex v_goal = goal_tree[i];
 
         auto nearest = kNearestNeighbor(v_goal.projection, *start_kd_tree, 1);
@@ -660,54 +635,34 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             expand(cp,config_id, goal, *trees[t], *weights[t], *kd_trees[t], k_expension);
         
         } 
-        if(i % 10 == 0){
+        //rebuilding kd trees
+        if(i % 50 == 0){
             start_kd_tree->buildIndex();
             goal_kd_tree->buildIndex();
         }
+        //try to connect trees
         if(connect(cp, 2*step_length)){
-            Viewer.setTree(start_tree,goal_tree); 
+            Viewer.updateTree(start_tree,goal_tree); 
             return createPath(start_tree.back().config);
         }
         if(start_with_rotation && i == 100){
             rotation_bias = 0.05;
         }
-
-        // //pruning the tree   
-        // if(i>0 && i % pruning_interval == 0){
-        //     std::cout << std::endl;
-        //     std::cout << RED <<"Trees are getting pruned" << RESET << std::endl;
-        //     std::cout << "Number of Vertcies befor pruning: "<< BLUE << "start_tree: "  << start_tree.size() << "; goal_tree: " << goal_tree.size() << RESET << std::endl;
-        //     auto nearest_goal = nearestVertex(goal_tree[0].config, start_tree);
-        //     start_tree = pruneAllLeafNodes(start_tree);
-        //     goal_tree = pruneAllLeafNodes(goal_tree);
-        //     std::cout << "Number of Vertcies after pruning: "<< GREEN << "start_tree: " << start_tree.size() << "; goal_tree: " << goal_tree.size() << RESET <<std::endl;
-        //     start_kd_tree->buildIndex();
-        //     goal_kd_tree->buildIndex();
-        //     start_weight = updateAllWeights(start_tree,*start_kd_tree,radius);
-        //     goal_weight = updateAllWeights(goal_tree,*goal_kd_tree,radius);
-
-        // }
         
-        if(i % 10 == 0){
+        //update viewer
+        if(i % 50 == 0){
             std::cout << std::endl;
             std::cout << "Iteration: " << i << "; Number of Vertcies in start_tree: " << start_tree.size() << "; Number of Vertcies in goal_tree: " << goal_tree.size() << std::endl;
             auto nearest_goal = kNearestNeighbor(goal_tree[0].projection,*start_kd_tree, 1)[0];
             cp.setVars(start_tree[nearest_goal].config);
             std::cout << "nearest Vertex to goal is: " << nearest_goal << " with distance " << (start_tree[nearest_goal].config - goal_tree[0].config).norm() << " and Energy: " <<cp.energy()<<" Contact Energy: "<< cp.contactEnergy() << std::endl;
             auto nearest_start = kNearestNeighbor(start_tree[0].projection,*goal_kd_tree, 1)[0];
-            // std::cout << "nearest Vertex to start is: " << nearest_start << " with distance " << (goal_tree[nearest_start].config - start_tree[0].config).norm() <<  std::endl;
-            // std::cout << "highest weight in start tree: " << *std::max_element(start_weight.begin(), start_weight.end()) << std::endl;
-            // std::cout << "lowest weight in start tree: " << *std::min_element(start_weight.begin(), start_weight.end()) << std::endl;
-            // std::cout << "highest weight in goal tree: " << *std::max_element(goal_weight.begin(), goal_weight.end()) << std::endl;
-            // std::cout << "lowest weight in goal tree: " << *std::min_element(goal_weight.begin(), goal_weight.end()) << std::endl;
-            // auto pca_pts = pca.reconstruct(start_tree[nearest_goal].projection,proj_dim);
-            // auto pts = DoFsToPos(pca_pts,0.25*n_dofs);
             auto pts = DoFsToPos(start_tree[nearest_goal].config,0.25*n_dofs);
             
             Viewer.updateKnot(pts); 
             auto direction_to_goal = DoFsToPos(goal_tree[0].config - start_tree[nearest_goal].config,0.25*n_dofs);
             Viewer.showNodeGradient(direction_to_goal);
-            Viewer.setTree(start_tree,goal_tree); 
+            Viewer.updateTree(start_tree,goal_tree); 
             
         } 
         Viewer.frameTick();  

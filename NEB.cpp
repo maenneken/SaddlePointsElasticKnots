@@ -243,34 +243,34 @@ void globalNebLBFGSStep(ContactProblem& cp, RowMatrix& R, LBGFhistory& history, 
     Eigen::VectorXd R_old = R_vec;
 
     //todo instead of claming step, calk best stpe size
-    //R_vec += step;
+    R_vec += step;
 
-    // Line search to find optimal step size
-    double step_size = 1.0;
-    const double c = 1e-4;  // Armijo condition constant
-    const int max_ls_iter = 20;
+    // // Line search to find optimal step size
+    // double step_size = 1.0;
+    // const double c = 1e-4;  // Armijo condition constant
+    // const int max_ls_iter = 20;
     
-    Eigen::VectorXd R_trial = R_vec + step_size * step;
-    cp.setVars(Eigen::Map<const Eigen::MatrixXd>(R_trial.data(), rows_internal, cols));
-    RowMatrix d_R_trial = gradientMatrix(cp, R);
-    Eigen::VectorXd F_trial = Eigen::Map<Eigen::VectorXd>(
-        globalNEBForce(d_R_trial, R, spring_constant, climbing_image, idx_max).data(),
-        rows_internal * cols);
+    // Eigen::VectorXd R_trial = R_vec + step_size * step;
+    // cp.setVars(Eigen::Map<const Eigen::MatrixXd>(R_trial.data(), rows_internal, cols));
+    // RowMatrix d_R_trial = gradientMatrix(cp, R);
+    // Eigen::VectorXd F_trial = Eigen::Map<Eigen::VectorXd>(
+    //     globalNEBForce(d_R_trial, R, spring_constant, climbing_image, idx_max).data(),
+    //     rows_internal * cols);
     
-    double initial_reduction = -c * step_size * F.dot(step);
+    // double initial_reduction = -c * step_size * F.dot(step);
     
-    for (int ls_iter = 0; ls_iter < max_ls_iter && F_trial.dot(step) > initial_reduction; ++ls_iter) {
-        step_size *= 0.5;
-        R_trial = R_vec + step_size * step;
-        cp.setVars(Eigen::Map<const Eigen::MatrixXd>(R_trial.data(), rows_internal, cols));
-        d_R_trial = gradientMatrix(cp, R);
-        F_trial = Eigen::Map<Eigen::VectorXd>(
-            globalNEBForce(d_R_trial, R, spring_constant, climbing_image, idx_max).data(),
-            rows_internal * cols);
-    }
+    // for (int ls_iter = 0; ls_iter < max_ls_iter && F_trial.dot(step) > initial_reduction; ++ls_iter) {
+    //     step_size *= 0.5;
+    //     R_trial = R_vec + step_size * step;
+    //     cp.setVars(Eigen::Map<const Eigen::MatrixXd>(R_trial.data(), rows_internal, cols));
+    //     d_R_trial = gradientMatrix(cp, R);
+    //     F_trial = Eigen::Map<Eigen::VectorXd>(
+    //         globalNEBForce(d_R_trial, R, spring_constant, climbing_image, idx_max).data(),
+    //         rows_internal * cols);
+    // }
     
-    R_vec += step_size * step;
-    cp.setVars(Eigen::Map<const Eigen::MatrixXd>(R_vec.data(), rows_internal, cols));
+    // R_vec += step_size * step;
+    // cp.setVars(Eigen::Map<const Eigen::MatrixXd>(R_vec.data(), rows_internal, cols));
 
     //upodate history
     d_R = gradientMatrix(cp,R);

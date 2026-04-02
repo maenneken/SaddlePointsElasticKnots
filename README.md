@@ -55,3 +55,12 @@ jupyter lab
 ```
 
 Now try opening and running an example notebook, e.g., `python/Demo-1-Simulation.ipynb` to test the simulation framework.
+
+
+# Debug for me
+Build with setup_debug.py
+
+perf logging:
+
+/usr/lib/linux-tools/6.8.0-107-generic/perf record ./my_program
+/usr/lib/linux-tools/6.8.0-107-generic/perf report

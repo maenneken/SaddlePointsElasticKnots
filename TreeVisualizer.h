@@ -23,5 +23,14 @@ class TreeVisualizer : public KnotVisualizer{
     private:
         polyscope::CurveNetwork* start_tree_curve = nullptr;
         polyscope::CurveNetwork* goal_tree_curve = nullptr;
+
+        std::vector<std::array<size_t,2>> start_edges;
+        std::vector<Eigen::Vector3d> start_projection;
+
+        std::vector<std::array<size_t,2>> goal_edges;
+        std::vector<Eigen::Vector3d> goal_projection;
+
+        size_t last_start_tree_size = 0;
+        size_t last_goal_tree_size = 0;
         
 };
