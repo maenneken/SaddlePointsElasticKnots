@@ -136,6 +136,8 @@ int main(int argc, char** argv) {
     static double stepsize = 1 * multiplier;
     static double steplength = 40 * multiplier;
     static double goalBias = 0.2;
+    static double near_goal_bias = 0.2;
+    static double tree_bias = 0.2;
     static bool oneRandDirection = false;
     static bool allPermutations = true;
     static double neighbor_radius = 10;
@@ -167,6 +169,8 @@ int main(int argc, char** argv) {
         ImGui::InputDouble("stepsize", &stepsize,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("stepLength", &steplength,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("goal Bias", &goalBias,(0.001),(0.01),"%.4f");
+        ImGui::InputDouble("near goal bias", &near_goal_bias,(0.001),(0.01),"%.4f");
+        ImGui::InputDouble("tree bias", &tree_bias,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("rotation bias", &rotation_bias,(0.001),(1),"%.4f");
         ImGui::InputDouble("gradient bias", &gradient_bias,(0.001),(1),"%.4f");
         ImGui::InputDouble("neighbor radius", &neighbor_radius,(0.1),(0.1),"%.4f");
@@ -225,6 +229,8 @@ int main(int argc, char** argv) {
 
             RRT rrt(start_dofs, goal_dofs, Viewer.pca, allPermutations,every_k_permutation);
             rrt.goal_bias = goalBias;
+            rrt.near_goal_bias = near_goal_bias;
+            rrt.tree_bias = tree_bias;
             rrt.max_energy = maxEnergy;
             rrt.pruning_interval = pruningInterval;
             rrt.steer_step = stepsize;

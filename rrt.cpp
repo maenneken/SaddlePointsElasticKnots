@@ -625,7 +625,7 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
             
             //goalbias = exploitation
             //pick knot nearest to goal
-            if(uniform01() < goal_bias){
+            if(uniform01() < near_goal_bias){
                 auto nears = kNearestNeighbor(pca.project(goal,proj_dim),*kd_trees[t], k_neighbors);
                 if(nears.empty()){
                     continue; // skip this expansion, KD-tree has no neighbors
@@ -637,7 +637,7 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
                 config_id = dd(gen);
             }
             //try to go towards the tree
-            if(uniform01() < (goal_bias)){
+            if(uniform01() < (tree_bias)){
                 auto nears = kNearestNeighbor((*trees[t])[config_id].projection,*kd_trees[1-t], k_neighbors);
                 if(nears.empty()){
                     continue; // skip this expansion, KD-tree has no neighbors

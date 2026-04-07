@@ -71,6 +71,8 @@ class RRT{
         double step_length = 40;
         double max_energy = 10;
         double goal_bias = 0.2;
+        double near_goal_bias = 0.2;
+        double tree_bias = 0.2;
         double steer_step = 1;
         size_t pruning_interval = 1000;
         bool one_rand_direction_3d = false;
