@@ -25,6 +25,7 @@ std::vector<Eigen::Vector3d> TreeVisualizer::projectTree(std::vector<rrt_vertex>
     
 }
 void TreeVisualizer::setTree(std::vector<rrt_vertex>& start_tree, std::vector<rrt_vertex>& goal_tree){
+
     start_edges = getEdges(start_tree);
     start_projection = projectTree(start_tree,3);
     start_tree_curve = polyscope::registerCurveNetwork("start tree", start_projection, start_edges);
@@ -42,6 +43,7 @@ void TreeVisualizer::setTree(std::vector<rrt_vertex>& start_tree, std::vector<rr
 }
 void TreeVisualizer::updateTree(std::vector<rrt_vertex>& start_tree, std::vector<rrt_vertex>& goal_tree){
     // Update start tree incrementally
+    if(!update_tree_visualization) return;
     size_t current_start_size = start_tree.size();
     for (size_t i = last_start_tree_size; i < current_start_size; ++i) {
         if (start_tree[i].parent >= 0) {

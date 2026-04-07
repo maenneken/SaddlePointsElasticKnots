@@ -50,6 +50,7 @@ class RRT{
         void buildKDTrees();
         std::vector<size_t> kNearestNeighbor(const Eigen::VectorXd& query_projection, const KDTree& index, int k);
         std::vector<size_t> radiusNeighbor(const Eigen::VectorXd& query_projection, const KDTree& index, double r);
+        void updateWeight(size_t idx, std::vector<double>& weights, const std::vector<rrt_vertex>& tree, const KDTree& kd_tree, double r);
         void updateNeighboringWeights(const Eigen::VectorXd& config,std::vector<rrt_vertex>& tree,std::vector<double>& weights, const KDTree& kd_tree, double r);
         std::vector<double> updateAllWeights( const std::vector<rrt_vertex>& tree, KDTree& kd_tree, double r);
         Eigen::VectorXd steerTowardsConfig(ContactProblem& cp, Eigen::VectorXd& near, Eigen::VectorXd& rand);

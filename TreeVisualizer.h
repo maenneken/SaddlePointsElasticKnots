@@ -20,6 +20,7 @@ class TreeVisualizer : public KnotVisualizer{
         void updateTree(std::vector<rrt_vertex>& start_tree, std::vector<rrt_vertex>& goal_tree);
 
         PCA pca;
+        bool update_tree_visualization = true;
     private:
         polyscope::CurveNetwork* start_tree_curve = nullptr;
         polyscope::CurveNetwork* goal_tree_curve = nullptr;

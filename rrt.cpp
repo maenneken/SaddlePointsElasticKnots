@@ -438,24 +438,31 @@ std::vector<double> RRT::updateAllWeights( const std::vector<rrt_vertex>& tree, 
     }
     return weights;
 }
+void RRT::updateWeight(size_t idx, std::vector<double>& weights, const std::vector<rrt_vertex>& tree, const KDTree& kd_tree, double r){
+
+    double neighbor_weight = 1.0 / (radiusNeighbor(tree[idx].projection, kd_tree, r).size() + 1);
+
+        if(tree[idx].successful_expansions + tree[idx].unsuccessful_expansions == 0){
+            weights[idx] = neighbor_weight;
+            return;
+        }
+        double expansion_weight =  static_cast<double>(tree[idx].successful_expansions) / (tree[idx].successful_expansions + tree[idx].unsuccessful_expansions);
+        weights[idx] = neighbor_weight * expansion_weight;
+
+}
 
 void RRT::updateNeighboringWeights(const Eigen::VectorXd& config,std::vector<rrt_vertex>& tree,std::vector<double>& weights, const KDTree& kd_tree, double r){
     std::vector<size_t> neighbors = radiusNeighbor(pca.project(config,proj_dim), kd_tree,r);
     for (size_t n: neighbors){
-        double neighbor_weight = 1.0 / (radiusNeighbor(tree[n].projection, kd_tree, r).size() + 1);
-
-        if(tree[n].successful_expansions + tree[n].unsuccessful_expansions == 0){
-            weights[n] = neighbor_weight;
-            continue;
-        }
-        double expansion_weight =  static_cast<double>(tree[n].successful_expansions) / (tree[n].successful_expansions + tree[n].unsuccessful_expansions);
-        weights[n] = neighbor_weight * expansion_weight;
+        updateWeight(n, weights, tree, kd_tree, r);
     }
 }
 
 //todo remove viewer
 void RRT::expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& goal, std::vector<rrt_vertex>& tree,std::vector<double>& weights, KDTree& kd_tree, size_t k){
     Eigen::VectorXd config = tree[config_id].config;
+
+    
 
     for(size_t i = 0; i < k; ++i){
         Eigen::VectorXd rand_direction = sampleRandDirection(cp, config, goal);
@@ -475,10 +482,15 @@ void RRT::expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& go
         rrt_vertex new_vertex(new_config,config_id);
         new_vertex.projection = pca.project(new_config,proj_dim);
         tree.emplace_back(new_vertex);
-        weights.emplace_back(1.0);
+
+        double new_weight = 1.0 / radiusNeighbor(new_vertex.projection, kd_tree, radius).size();
+        weights.emplace_back(new_weight);
 
     }
-    updateNeighboringWeights(config, tree, weights,kd_tree, radius);
+
+    updateWeight(config_id, weights, tree, kd_tree, radius);
+    //update only weight of selected node and new node
+    //updateNeighboringWeights(config, tree, weights,kd_tree, radius);
 }
 bool RRT::connect(ContactProblem& cp, double l){
     double l2 = l*l;
@@ -594,7 +606,8 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
     if(start_with_rotation){
         rotation_bias = 1.0;
     }
-   
+
+    size_t last_start_tree_size = start_tree.size();
 
     for(size_t i = 0; i < iterations; ++i){
         //switch between the two trees to expand them
@@ -636,7 +649,9 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
         
         } 
         //rebuilding kd trees
-        if(i % 50 == 0){
+        if(i < 100 || start_tree.size() > last_start_tree_size * 1.2){
+            std::cout << std::endl << GREEN <<"Rebuilding KD-trees at iteration " << i << " with start_tree size " << start_tree.size() << " and goal_tree size " << goal_tree.size() << RESET << std::endl;
+            last_start_tree_size = start_tree.size();
             start_kd_tree->buildIndex();
             goal_kd_tree->buildIndex();
         }

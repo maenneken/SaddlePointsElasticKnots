@@ -152,6 +152,7 @@ int main(int argc, char** argv) {
     static double gradient_bias = 0.1;
     static bool pca_data_whitening = false;
     static int k_expension = 1;
+    static bool update_tree_visualization = true;
    
     bool running = false;
     bool show_path = false;
@@ -207,7 +208,10 @@ int main(int argc, char** argv) {
             std::string header = "Stepsize: " + std::to_string(stepsize) + ", StepLength: " + std::to_string(steplength) + ", GoalBias: " + std::to_string(goalBias) + ", NeighborRadius: " + std::to_string(neighbor_radius) + ", SampleProjDim: " + std::to_string(sample_proj_dim) + ", OneRandDirection: " + std::to_string(oneRandDirection) + ", AllPermutations: " + std::to_string(allPermutations) + ", GoalBiasForAllPermutations: " + std::to_string(goal_bias_for_all_permutations) + ", SampleInProjectionSpace: " + std::to_string(sample_in_projection_space) + ", UseConstraintProjectionForSampling: " + std::to_string(use_constraint_projection_for_sampling) + ", ReprojectDirection: " + std::to_string(reproject_direction);
             savePathTxt("foundPath.txt",path, header);
         }
-
+        if (ImGui::Button("toggle tree visualization")){
+            update_tree_visualization = !update_tree_visualization;
+            Viewer.update_tree_visualization = update_tree_visualization;
+        }
   
         ImGui::End();   
 
@@ -217,6 +221,7 @@ int main(int argc, char** argv) {
         Viewer.frameTick();
         if(running){
             Viewer.pca.whiten = pca_data_whitening;
+            
 
             RRT rrt(start_dofs, goal_dofs, Viewer.pca, allPermutations,every_k_permutation);
             rrt.goal_bias = goalBias;
