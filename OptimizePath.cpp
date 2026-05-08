@@ -75,6 +75,7 @@ int main(int argc, char** argv) {
     RowMatrix pathMatrix = listToMatrix(path);
 
     static int iterations = 1000;
+    int current_iteration = 0;
     static double stepsize = 0.001;
     static double max_step = 1;
     static double spring_constant = 100;
@@ -143,8 +144,8 @@ int main(int argc, char** argv) {
             show_path=true;
         }
         if (ImGui::Button("Save Path")) {
-            std::string header = "Iterations: " + std::to_string(iterations) + ", stepsize: " + std::to_string(stepsize) + ", max step size: " + std::to_string(max_step) + ", spring constant: " + std::to_string(spring_constant) + ", global NEB: " + (globalNeb ? "true" : "false") + ", climbing image: " + (climbingImage ? "true" : "false");
-            savePathTxt("optimized.txt",path);
+            std::string header = "Iterations: " + std::to_string(current_iteration) + ", stepsize: " + std::to_string(stepsize) + ", max step size: " + std::to_string(max_step) + ", spring constant: " + std::to_string(spring_constant) + ", global NEB: " + (globalNeb ? "true" : "false") + ", climbing image: " + (climbingImage ? "true" : "false");
+            savePathTxt("optimized.txt",path, header);
         }
 
   
@@ -156,7 +157,7 @@ int main(int argc, char** argv) {
     while (!polyscope::windowRequestsClose()) { 
         Viewer.frameTick();
         if(running&& it < iterations){
-
+            current_iteration = it;
             //global seems to want smaller step size (0.001 and smaller)
             if(globalNeb){
                 //update gradient Matrix
