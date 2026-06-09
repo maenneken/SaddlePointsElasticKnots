@@ -1,0 +1,3 @@
+Knot Type: 4_1
+A: 0001.obj -> 0033.obj (reflected)
+B: 0001.obj -> 0033.obj
