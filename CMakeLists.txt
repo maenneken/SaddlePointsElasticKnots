@@ -194,6 +194,7 @@ add_executable(OptimizePath
     NEB.cpp
     helpers.cpp
     KnotVisualizer.cpp
+    KnotResolution.cpp
 )
 
 add_executable(CreatePCAdataset
