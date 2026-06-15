@@ -117,6 +117,8 @@ RowMatrix globalNEBForce(RowMatrix& d_R, RowMatrix& R, double spring_constant, b
     RowMatrix F_neb = F_spring + F_perp;
 
     if(climbing_image){
+        //N hole path - 2 internal images, also idx_max is in [1, N-2] R is length N, so R.row(idx_max) is the image with highest energy
+        //F_neb is only defined for internal images, so F_neb.row(idx_max-1) corresponds to the image with highest energy
         F_neb.row(idx_max-1) = climbingForce(d_R.row(idx_max),R.row(idx_max-1),R.row(idx_max+1));
     }
 

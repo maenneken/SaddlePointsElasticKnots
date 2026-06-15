@@ -7,7 +7,7 @@
 size_t find_max_energy(ContactProblem& cp, std::vector<Eigen::VectorXd> path){
     size_t max_id = 0;
     double max_energy = 0;
-    for (size_t i = 0; i < path.size();++i){
+    for (size_t i = 1; i < path.size()-1;++i){
         cp.setVars(path[i]);
         if(cp.energy()> max_energy){
             max_id = i;
@@ -169,6 +169,11 @@ int main(int argc, char** argv) {
             start = std::chrono::high_resolution_clock::now();
             
         }
+        if(ImGui::Button("Increase radius")){
+            increaseRadius(cp,path);
+            Viewer.setKnot(DoFsToPos(path[path_idx], n_pts),0.01 * cp.m_options.dHat/2);
+            pathMatrix = listToMatrix(path);
+        }
         if (ImGui::Button("Show Path")) {
             show_path=true;
         }
@@ -236,7 +241,12 @@ int main(int argc, char** argv) {
                 max_neb_force = 0;
                 for (size_t i = 1; i < path.size()-1;++i){
                     cp.setVars(path[i]);
-                    current_F_neb = nebForce(spring_constant,cp.gradient(),path[i-1],path[i],path[i+1]);
+                    if(climbingImage && i == max_id){
+                        current_F_neb = climbingForce(cp.gradient(),path[i-1],path[i+1]);
+                    }
+                    else{
+                        current_F_neb = nebForce(spring_constant,cp.gradient(),path[i-1],path[i],path[i+1]);
+                    }
                     if(current_F_neb.norm() > max_neb_force){
                         max_neb_force = current_F_neb.norm();
                     }
@@ -249,7 +259,12 @@ int main(int argc, char** argv) {
                 Viewer.showNodeGradient(DoFsToPos(-cp.gradient(true), n_pts));
                 current_F_neb = Eigen::VectorXd::Zero(path[0].size());
                 if(path_idx > 0 && path_idx < path.size() -1){
-                    current_F_neb = nebForce(spring_constant,cp.gradient(),path[path_idx-1],path[path_idx],path[path_idx+1]);
+                    if(climbingImage && path_idx == max_id){
+                        current_F_neb = climbingForce(cp.gradient(),path[path_idx-1],path[path_idx+1]);
+                    }
+                    else{
+                        current_F_neb = nebForce(spring_constant,cp.gradient(),path[path_idx-1],path[path_idx],path[path_idx+1]);
+                    }
                 }
                 Viewer.showNodeGradientModified(DoFsToPos(current_F_neb, n_pts));
                 std::cout       << std::endl << std::endl

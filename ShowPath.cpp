@@ -113,6 +113,7 @@ int main(int argc, char** argv) {
     double step_size = 0.5;
     int intersecion_counter = 0;
     bool calk_eigenvalues = false;
+    double new_radius = 1;
     std::vector<Eigen::VectorXd> possibleSelfIntersections;
 
     Viewer.setUserCallback([&]() {
@@ -144,6 +145,7 @@ int main(int argc, char** argv) {
         } 
 
         ImGui::InputInt("sleep between frame", &sleep_mil);
+        ImGui::InputDouble("new radius", &new_radius);
         ImGui::InputDouble("step size", &step_size);
         ImGui::Checkbox("Calk eigenvalues", &calk_eigenvalues);
         if(ImGui::Button("show interpolated path")){
@@ -172,6 +174,13 @@ int main(int argc, char** argv) {
                 step_size *= 0.1;
                 possibleSelfIntersections.clear();
                 intersecion_counter = 0;
+            }
+            
+        }
+        if(ImGui::Button("Increase radius")){
+            while(new_radius >= cp.m_options.dHat/2){
+                increaseRadius(cp,path);
+                Viewer.setKnot(DoFsToPos(path[path_idx], n_pts),0.01 * cp.m_options.dHat/2);
             }
             
         }

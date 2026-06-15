@@ -1,4 +1,4 @@
-4_1 PathA.txt (6 x 25Nodes) springfactor = 1
+4_1 PathA_800.txt (6 x 25Nodes) springfactor = 1
 reach max F_NEB = 0.1 in 5s
 
 Image: 1, current Energy: 1.32581, contact Energy: 0, Gradient: 0.0664394, Position: 137.933, Twist: 0.60721, NEB Force: 0.0663723
@@ -15,7 +15,7 @@ Max NEB Force: 0.0953466
 Optimization took: 5059 ms
 
 
-4_1 PathA_800.txt (8x 100Nodes) springfactor = 1
+4_1 PathA_800_5300.txt (8x 100Nodes) springfactor = 1
 reach max F_NEB = 0.1 in 98s
 
 Image: 1, current Energy: 0.916955, contact Energy: 0, Gradient: 0.0372345, Position: 286.324, Twist: 12.9216, NEB Force: 0.0370567
@@ -39,7 +39,7 @@ Max NEB Force: 0.0965852
 Optimization took: 98989 ms
 
 
-4_1 PathA_800.txt (8x 100Nodes) springfactor = 1
+4_1 PathA_800_5300_88700.txt (8x 100Nodes) springfactor = 1
 reach max F_NEB = 0.01 in 3917s
 
 Image: 1, current Energy: 0.859747, contact Energy: 0, Gradient: 0.00284408, Position: 287.209, Twist: 12.9677, NEB Force: 0.0025435
@@ -60,6 +60,34 @@ Image: 5, current Energy: 0.868233, contact Energy: 0, Gradient: 0.00568145, Pos
 Image: 6, current Energy: 0.820233, contact Energy: 1.28874e-07, Gradient: 0.00372489, Position: 327.479, Twist: 28.3604, NEB Force: 0.00372944
 Max NEB Force: 0.00999711
 Optimization took: 3917813 ms
+
+
+4_1 PathA_800_5300_88700_1000000.txt(8x 100Nodes) springfactor = 1
+Climbing image 1000000 Iterations in 7408 x 2 = 14816s
+
+
+Image: 1, current Energy: 0.83072, contact Energy: 4.34066e-08, Gradient: 0.00170624, Position: 292.766, Twist: 14.1074, NEB Force: 0.00159637
+
+
+Image: 2, current Energy: 0.881268, contact Energy: 8.88871e-08, Gradient: 0.00211564, Position: 283.823, Twist: 2.86319, NEB Force: 0.00212483
+
+
+Image: 3, current Energy: 0.881231, contact Energy: 3.78064e-08, Gradient: 0.00262798, Position: 295.281, Twist: 4.99075, NEB Force: 3.65929
+
+
+Image: 4, current Energy: 0.851962, contact Energy: 1.44036e-09, Gradient: 0.00208858, Position: 305.445, Twist: 8.38642, NEB Force: 0.00206209
+
+
+Image: 5, current Energy: 0.828994, contact Energy: 5.12322e-08, Gradient: 0.00143251, Position: 317.462, Twist: 15.1396, NEB Force: 0.00139743
+
+
+Image: 6, current Energy: 0.812421, contact Energy: 3.22904e-07, Gradient: 0.000460723, Position: 327.528, Twist: 27.6589, NEB Force: 0.000494338
+Max NEB Force: 3.65929
+Optimization took: 7408331 ms
+
+
+
+
 
 
 
@@ -194,6 +222,6 @@ Max NEB Force: 0.056566
 Optimization took: 8640255 ms
 
 reflecition Path: (23 x 25Node) springfactor = 0.001
-reach max F_NEB = 0.01 in 6hschon
+reach max F_NEB = 0.01 in 7h schon
 
 

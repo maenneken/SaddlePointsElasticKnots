@@ -341,6 +341,20 @@ void showPath(std::vector<Eigen::VectorXd>& path, ContactProblem& cp, KnotVisual
     }
 
 }
+void increaseRadius(ContactProblem& cp,std::vector<Eigen::VectorXd>& path){
+    cp.m_options.dHat += 0.05;
+    for (size_t i = 0; i < path.size();++i){
+        cp.setVars(path[i]);
+        while(cp.contactEnergy() > 0.01){
+            cp.setVars(path[i]);
+            auto grad = cp.gradient(true);
+            path[i] -= 0.1 * grad.normalized();
+
+            std::cout << "contact energy: " << cp.contactEnergy() << std::endl;
+        }
+        std::cout << "increasing dHat to " << cp.m_options.dHat << ", @: " << i << ", current contact energy: " << cp.contactEnergy() << std::endl;
+    }
+}
 
 void relax_start_goal(ContactProblem& cp, Eigen::VectorXd& start_dofs,  Eigen::VectorXd& goal_dofs){
 //--- relax start and goal ---

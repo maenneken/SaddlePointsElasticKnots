@@ -48,4 +48,5 @@ HessianAndGradient insertInBiggerHg(Eigen::MatrixXd & H_big, Eigen::VectorXd& g_
 void savePathTxt(const std::string& filename, const std::vector<Eigen::VectorXd>& path, const std::string& header = "");
 std::vector<Eigen::VectorXd>loadPathTxt(const std::string& filename);
 void showPath(std::vector<Eigen::VectorXd>& path, ContactProblem& cp, KnotVisualizer& Viewer);
+void increaseRadius(ContactProblem& cp,std::vector<Eigen::VectorXd>& path);
 void relax_start_goal(ContactProblem& cp, Eigen::VectorXd& start_dofs,  Eigen::VectorXd& goal_dofs);
