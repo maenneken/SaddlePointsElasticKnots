@@ -106,6 +106,7 @@ int main(int argc, char** argv) {
     bool globalLBFGSNebLineSearch = false;
     static double max_neb_force_threshold = 0.01;
     float max_neb_force = 1000;
+    double new_radius = rod_radius;
 
     std::chrono::high_resolution_clock::time_point start;
 
@@ -135,6 +136,7 @@ int main(int argc, char** argv) {
         ImGui::InputDouble("max step size", &max_step,(0.001),(0.01),"%.7f");
         ImGui::InputDouble("Spring constant", &spring_constant,(0.001),(0.01),"%.4f");
         ImGui::InputDouble("Max NEB Force Threshold", &max_neb_force_threshold,(0.001),(0.01),"%.4f");
+                
 
         ImGui::SliderInt("path_idx", &path_idx, 0, path.size()-1);
         path_idx = std::clamp(path_idx, 0, (int)path.size()-1);
@@ -169,9 +171,12 @@ int main(int argc, char** argv) {
             start = std::chrono::high_resolution_clock::now();
             
         }
+        ImGui::InputDouble("new radius", &new_radius);
         if(ImGui::Button("Increase radius")){
-            increaseRadius(cp,path);
-            Viewer.setKnot(DoFsToPos(path[path_idx], n_pts),0.01 * cp.m_options.dHat/2);
+            while(new_radius >= cp.m_options.dHat/2){
+                increaseRadius(cp,path);
+                Viewer.setKnot(DoFsToPos(path[path_idx], n_pts),0.01 * cp.m_options.dHat/2);
+            } 
             pathMatrix = listToMatrix(path);
         }
         if (ImGui::Button("Show Path")) {
@@ -211,17 +216,16 @@ int main(int argc, char** argv) {
                 //for local step of 0.01 works great
                 nebGradientStep(cp, path, F_neb, spring_constant,stepsize, max_id, climbingImage);
                 //nebGradientStepLS(cp, path, F_neb, spring_constant, stepsize, max_id, climbingImage);
-            }
-            
-            //do gradient decend on ends
-            //start Knot
-            // cp.setVars(path[0]);
-            // path[0] -= stepsize * cp.gradient(true);
 
-            // //goal Knot
-            // cp.setVars(path[path.size()-1]);
-            // path[path.size()-1] -= stepsize * cp.gradient(true);
-    
+                    //do gradient decend on ends
+                    //start Knot
+                    cp.setVars(path[0]);
+                    path[0] -= stepsize * cp.gradient(true);
+
+                    //goal Knot
+                    cp.setVars(path[path.size()-1]);
+                    path[path.size()-1] -= stepsize * cp.gradient(true);
+            }
 
             ++it;
             

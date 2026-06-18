@@ -7,9 +7,10 @@ struct rrt_vertex{
     Eigen::VectorXd projection;
     int unsuccessful_expansions = 0;
     int successful_expansions = 0;
+    int depth = 0;
 
     rrt_vertex(const Eigen::VectorXd& config_, int parent_)
-        : config(config_), parent(parent_) {}
+        : config(config_), parent(parent_), depth(0) {}
 };
 class TreeVisualizer : public KnotVisualizer{
     public:

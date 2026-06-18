@@ -90,6 +90,16 @@ class RRT{
         size_t every_k_permutation = 1;
         double max_rod_energy = 30000;
         bool start_with_rotation = false;
+        int max_depth = 15;
+
+        size_t iterations_quota = 0;
+        double expension_quota = 0.0;
+        size_t tree_size_quota = 0;
+        size_t path_length_quota = 0;
+        
+
+
+
     private:
         double min_val;
         double max_val;

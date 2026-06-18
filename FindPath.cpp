@@ -129,14 +129,15 @@ int main(int argc, char** argv) {
     Viewer.setGoalKnot(DoFsToPos(goal_dofs,n_pts),0.01 * rod_radius);
     //Save first Knot Vars
     auto startKnot = cp.getVars();
-
+     
     static int iterations = 5000;
+    static int banchmark_runs = 10;
     static int pruningInterval = 1000;
     static double maxEnergy = std::max({start_energy,goal_energy})*2 +1;
     static double stepsize = 1 * multiplier;
     static double steplength = 40 * multiplier;
     static double goalBias = 0.2;
-    static double near_goal_bias = 0.2;
+    static double near_goal_bias = 0.0;
     static double tree_bias = 0.2;
     static bool oneRandDirection = false;
     static bool allPermutations = true;
@@ -155,15 +156,19 @@ int main(int argc, char** argv) {
     static bool pca_data_whitening = false;
     static int k_expension = 1;
     static bool update_tree_visualization = true;
+    static int max_depth = 15;
+    
    
     bool running = false;
     bool show_path = false;
+    bool benchmarking = false;
     std::vector<Eigen::VectorXd> path;
     //set buttons
     Viewer.setUserCallback([&]() {
         //todo add controls to load a Knot and set up a contactproblem with all options
         ImGui::Begin("Controls");
         ImGui::InputInt("Iterations", &iterations,1000,10000);
+        ImGui::InputInt("Benchmark runs", &banchmark_runs,1,100);
         //ImGui::InputInt("Pruning Interval", &pruningInterval,1000,10000);
         ImGui::InputDouble("Max Energy", &maxEnergy,(0.001),(1),"%.2f");
         ImGui::InputDouble("stepsize", &stepsize,(0.001),(0.01),"%.4f");
@@ -179,6 +184,7 @@ int main(int argc, char** argv) {
         //ImGui::InputDouble("max rod energy", &max_rod_energy,(0.001),(1),"%.2f");
         ImGui::InputInt("k neighbors for goal bias", &k_neighbors,1,100);
         ImGui::InputInt("k expansion", &k_expension,1,10);
+        ImGui::InputInt("max depth for weighting", &max_depth,1,100);
 
 
         ImGui::Checkbox("oneRandDirection", &oneRandDirection);
@@ -204,7 +210,13 @@ int main(int argc, char** argv) {
         }
         if (ImGui::Button("Find Path")) {
             running=true;
+            
         }
+        if (ImGui::Button("Benchmark")){ 
+            running=true;
+            benchmarking = true;     
+        }
+
         if (ImGui::Button("Show Path")) {
             show_path=true;
         }
@@ -227,34 +239,125 @@ int main(int argc, char** argv) {
             Viewer.pca.whiten = pca_data_whitening;
             
 
-            RRT rrt(start_dofs, goal_dofs, Viewer.pca, allPermutations,every_k_permutation);
-            rrt.goal_bias = goalBias;
-            rrt.near_goal_bias = near_goal_bias;
-            rrt.tree_bias = tree_bias;
-            rrt.max_energy = maxEnergy;
-            rrt.pruning_interval = pruningInterval;
-            rrt.steer_step = stepsize;
-            rrt.step_length = steplength;
-            rrt.radius = neighbor_radius;
-            rrt.one_rand_direction_3d = oneRandDirection;
-            rrt.goal_bias_for_all_permutations = goal_bias_for_all_permutations;
-            rrt.sample_in_projection_space = sample_in_projection_space;
-            rrt.use_constraint_projection_for_sampling = use_constraint_projection_for_sampling;
-            rrt.reproject_direction = reproject_direction;
-            rrt.sample_proj_dim = sample_proj_dim;
-            rrt.max_rod_energy = max_rod_energy;
-            rrt.k_neighbors = k_neighbors;
-            rrt.start_with_rotation = start_with_rotation;
-            rrt.rotation_bias = rotation_bias;
-            rrt.gradient_bias = gradient_bias;
-            rrt.k_expension = k_expension;
 
-            std::cout << "Starting RRT with " << iterations << " iterations" << std::endl;
-            Viewer.setTree(rrt.start_tree, rrt.goal_tree);
-            path = rrt.findConstrainedPath(cp,iterations,Viewer);
 
-            std::cout << "Found a path of size: " << path.size() << std::endl; 
-            showPath(path,cp,Viewer);
+            if (benchmarking) {
+                std::vector<double> durations;
+                std::vector<double> expension_quotas;
+                std::vector<size_t> path_lengths;
+                std::vector<size_t> tree_sizes;
+                std::vector<size_t> iterations_quotas;
+                size_t successful_runs = 0;
+
+                for (int i = 0; i < banchmark_runs; ++i) {
+                    RRT rrt(start_dofs, goal_dofs, Viewer.pca, allPermutations,every_k_permutation);
+                    rrt.goal_bias = goalBias;
+                    rrt.near_goal_bias = near_goal_bias;
+                    rrt.tree_bias = tree_bias;
+                    rrt.max_energy = maxEnergy;
+                    rrt.pruning_interval = pruningInterval;
+                    rrt.steer_step = stepsize;
+                    rrt.step_length = steplength;
+                    rrt.radius = neighbor_radius;
+                    rrt.one_rand_direction_3d = oneRandDirection;
+                    rrt.goal_bias_for_all_permutations = goal_bias_for_all_permutations;
+                    rrt.sample_in_projection_space = sample_in_projection_space;
+                    rrt.use_constraint_projection_for_sampling = use_constraint_projection_for_sampling;
+                    rrt.reproject_direction = reproject_direction;
+                    rrt.sample_proj_dim = sample_proj_dim;
+                    rrt.max_rod_energy = max_rod_energy;
+                    rrt.k_neighbors = k_neighbors;
+                    rrt.start_with_rotation = start_with_rotation;
+                    rrt.rotation_bias = rotation_bias;
+                    rrt.gradient_bias = gradient_bias;
+                    rrt.k_expension = k_expension;
+                    rrt.max_depth = max_depth;
+
+                    auto start_time = std::chrono::high_resolution_clock::now();
+                    Viewer.setTree(rrt.start_tree, rrt.goal_tree);
+                    rrt.findConstrainedPath(cp, iterations, Viewer);
+                    auto end_time = std::chrono::high_resolution_clock::now();
+                    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+                    if(rrt.path_length_quota > 0){
+                        path_lengths.push_back(rrt.path_length_quota);
+                        durations.push_back(duration);
+                        tree_sizes.push_back(rrt.tree_size_quota);
+                        expension_quotas.push_back(rrt.expension_quota);
+                        iterations_quotas.push_back(rrt.iterations_quota);
+                        successful_runs++;  
+                    }
+                    std::cout << "Run " << i + 1 << ": " << duration << " milliseconds, Path Length: " << rrt.path_length_quota << ", Tree Size: " << rrt.tree_size_quota << ", Expansion Quota: " << rrt.expension_quota << std::endl;
+                }
+                double average_duration = std::accumulate(durations.begin(), durations.end(), 0.0) / durations.size();
+                double average_expansion_quota = std::accumulate(expension_quotas.begin(), expension_quotas.end(), 0.0) / expension_quotas.size();
+                double average_path_length = std::accumulate(path_lengths.begin(), path_lengths.end(), 0.0) / path_lengths.size();
+                double average_tree_size = std::accumulate(tree_sizes.begin(), tree_sizes.end(), 0.0) / tree_sizes.size();
+                double average_iterations_quota = std::accumulate(iterations_quotas.begin(), iterations_quotas.end(), 0.0) / iterations_quotas.size();
+
+                std::cout << std::endl << std::endl;
+                std::cout << "Benchmarking completed: " << successful_runs << "/" << banchmark_runs << " successful runs." << std::endl;
+                std::cout << "Average Duration: " << average_duration << " milliseconds" << std::endl;
+                std::cout << "Average Iterations Quota: " << average_iterations_quota << std::endl;
+                std::cout << "Average Tree Size: " << average_tree_size << std::endl;
+                std::cout << "Average Expansion Quota: " << average_expansion_quota << std::endl;
+                std::cout << "Average Path Length: " << average_path_length << std::endl;
+                sort(iterations_quotas.begin(), iterations_quotas.end());
+                std::cout << "Iteration Quotas: ";
+                for (const auto& quota : iterations_quotas) {
+                    std::cout << quota << " ";
+                }
+                std::cout << std::endl;
+
+                auto now = std::chrono::system_clock::now();
+                auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>( now.time_since_epoch()).count();
+                std::ofstream results_file("benchmark_results" + std::to_string(timestamp) + ".txt");
+                results_file << "Knots: from " << start_file << " to " << goal_file << std::endl;
+                results_file << "succsessrate  & average_duration & average_iterations_quota & average_tree_size & average_expansion_quota & average_path_length \\\\" << std::endl;
+                results_file << successful_runs << "/" << banchmark_runs << " & " << average_duration << " & " << average_iterations_quota << " & " << average_tree_size << " & " << average_expansion_quota << " & " << average_path_length << " \\\\" << std::endl;
+                results_file << std::endl << "Individual runs:" << std::endl;
+                results_file << "Iterations Quota: ";
+                for (const auto& quota : iterations_quotas) {
+                    results_file << quota << ", ";
+                }
+                results_file << std::endl;
+                results_file.close();
+                benchmarking = false;
+            }
+            else{
+                RRT rrt(start_dofs, goal_dofs, Viewer.pca, allPermutations,every_k_permutation);
+                rrt.goal_bias = goalBias;
+                rrt.near_goal_bias = near_goal_bias;
+                rrt.tree_bias = tree_bias;
+                rrt.max_energy = maxEnergy;
+                rrt.pruning_interval = pruningInterval;
+                rrt.steer_step = stepsize;
+                rrt.step_length = steplength;
+                rrt.radius = neighbor_radius;
+                rrt.one_rand_direction_3d = oneRandDirection;
+                rrt.goal_bias_for_all_permutations = goal_bias_for_all_permutations;
+                rrt.sample_in_projection_space = sample_in_projection_space;
+                rrt.use_constraint_projection_for_sampling = use_constraint_projection_for_sampling;
+                rrt.reproject_direction = reproject_direction;
+                rrt.sample_proj_dim = sample_proj_dim;
+                rrt.max_rod_energy = max_rod_energy;
+                rrt.k_neighbors = k_neighbors;
+                rrt.start_with_rotation = start_with_rotation;
+                rrt.rotation_bias = rotation_bias;
+                rrt.gradient_bias = gradient_bias;
+                rrt.k_expension = k_expension;
+                rrt.max_depth = max_depth;
+
+                std::cout << "Starting RRT with " << iterations << " iterations" << std::endl;
+                auto start_time = std::chrono::high_resolution_clock::now();
+                Viewer.setTree(rrt.start_tree, rrt.goal_tree);
+                path = rrt.findConstrainedPath(cp, iterations, Viewer);
+                auto end_time = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+                std::cout << "RRT finished in " << duration << " milliseconds" << std::endl;
+                std::cout << "Found a path of size: " << path.size() << std::endl; 
+                showPath(path,cp,Viewer);
+            }
+            
             running=false;
         }
         if(show_path){

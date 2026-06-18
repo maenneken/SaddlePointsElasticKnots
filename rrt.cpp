@@ -426,6 +426,7 @@ std::vector<Eigen::VectorXd> RRT::createPath(Eigen::VectorXd connection){
     full_path.insert(full_path.end(), goal_path.begin(), goal_path.end());
     
     printTreeQuota();
+    path_length_quota = full_path.size();
 
     return full_path;
 
@@ -440,14 +441,19 @@ std::vector<double> RRT::updateAllWeights( const std::vector<rrt_vertex>& tree, 
 }
 void RRT::updateWeight(size_t idx, std::vector<double>& weights, const std::vector<rrt_vertex>& tree, const KDTree& kd_tree, double r){
 
+    
+    if(tree[idx].depth > max_depth){
+        weights[idx] = 0.0;
+        return;
+    }
     double neighbor_weight = 1.0 / (radiusNeighbor(tree[idx].projection, kd_tree, r).size() + 1);
 
-        if(tree[idx].successful_expansions + tree[idx].unsuccessful_expansions == 0){
-            weights[idx] = neighbor_weight;
-            return;
-        }
-        double expansion_weight =  static_cast<double>(tree[idx].successful_expansions) / (tree[idx].successful_expansions + tree[idx].unsuccessful_expansions);
-        weights[idx] = neighbor_weight * expansion_weight;
+    if(tree[idx].successful_expansions + tree[idx].unsuccessful_expansions == 0){
+        weights[idx] = neighbor_weight;
+        return;
+    }
+    double expansion_weight =  static_cast<double>(tree[idx].successful_expansions) / (tree[idx].successful_expansions + tree[idx].unsuccessful_expansions);
+    weights[idx] = neighbor_weight * expansion_weight;
 
 }
 
@@ -481,9 +487,14 @@ void RRT::expand(ContactProblem& cp, size_t config_id, const Eigen::VectorXd& go
         //add new to the tree
         rrt_vertex new_vertex(new_config,config_id);
         new_vertex.projection = pca.project(new_config,proj_dim);
+        new_vertex.depth = tree[config_id].depth + 1;
         tree.emplace_back(new_vertex);
 
-        double new_weight = 1.0 / radiusNeighbor(new_vertex.projection, kd_tree, radius).size();
+        double new_weight = 0.0;
+        if(new_vertex.depth <= max_depth){
+            new_weight = 1.0 / radiusNeighbor(new_vertex.projection, kd_tree, radius).size();
+        }
+        
         weights.emplace_back(new_weight);
 
     }
@@ -588,6 +599,8 @@ void RRT::printTreeQuota(){
     std::cout << "Finished search" << std::endl;
     std::cout << "start tree: " << start_tree.size() << " vertices, " << start_successful_expansions << " successful expansions and " << start_unsuccessful_expansions << " unsuccessful expansions" << "; successful expansion quota: " << start_expansion_quota <<std::endl;
     std::cout << "goal tree: " << goal_successful_expansions << " successful expansions and " << goal_unsuccessful_expansions << " unsuccessful expansions" << "; successful expansion quota: " << goal_expansion_quota <<std::endl;
+    expension_quota = (start_successful_expansions + goal_successful_expansions) / static_cast<double>(start_successful_expansions + start_unsuccessful_expansions + goal_successful_expansions + goal_unsuccessful_expansions);
+    std::cout << "overall successful expansion quota: " << expension_quota <<std::endl;
 }
 
 std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t iterations, TreeVisualizer& Viewer){
@@ -658,6 +671,8 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
         //try to connect trees
         if(connect(cp, 2*step_length)){
             Viewer.updateTree(start_tree,goal_tree); 
+            iterations_quota = i;
+            tree_size_quota = start_tree.size() + goal_tree.size();
             return createPath(start_tree.back().config);
         }
         if(start_with_rotation && i == 100){

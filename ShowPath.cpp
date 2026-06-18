@@ -181,8 +181,7 @@ int main(int argc, char** argv) {
             while(new_radius >= cp.m_options.dHat/2){
                 increaseRadius(cp,path);
                 Viewer.setKnot(DoFsToPos(path[path_idx], n_pts),0.01 * cp.m_options.dHat/2);
-            }
-            
+            } 
         }
         if(ImGui::Button("Save all Knots with neg eigenvalue")){
             savePathTxt("negativeEigenvalues.txt",Knots_with_neg_eigenvalues);

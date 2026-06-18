@@ -1,0 +1,69 @@
+pathB
+
+near_goal_bias = 0, max_depth = 10, rest standard
+
+1.
+
+start tree: 717 vertices, 666 successful expansions and 211 unsuccessful expansions; successful expansion quota: 0.759407
+goal tree: 744 successful expansions and 133 unsuccessful expansions; successful expansion quota: 0.848347
+RRT finished in 4890 milliseconds
+Found a path of size: 19
+
+
+2.
+start tree: 7021 vertices, 6970 successful expansions and 1379 unsuccessful expansions; successful expansion quota: 0.834831
+goal tree: 7132 successful expansions and 1217 unsuccessful expansions; successful expansion quota: 0.854234
+RRT finished in 95779 milliseconds
+Found a path of size: 25
+
+3.
+start tree: 2348 vertices, 2297 successful expansions and 586 unsuccessful expansions; successful expansion quota: 0.79674
+goal tree: 2425 successful expansions and 458 unsuccessful expansions; successful expansion quota: 0.841138
+RRT finished in 27269 milliseconds
+Found a path of size: 24
+
+4.
+start tree: 5105 vertices, 5054 successful expansions and 1107 unsuccessful expansions; successful expansion quota: 0.820321
+goal tree: 5186 successful expansions and 975 unsuccessful expansions; successful expansion quota: 0.841746
+RRT finished in 64695 milliseconds
+Found a path of size: 25
+
+5.
+start tree: 5105 vertices, 5054 successful expansions and 1107 unsuccessful expansions; successful expansion quota: 0.820321
+goal tree: 5186 successful expansions and 975 unsuccessful expansions; successful expansion quota: 0.841746
+RRT finished in 64695 milliseconds
+Found a path of size: 25
+
+6.
+start tree: 1655 vertices, 1604 successful expansions and 398 unsuccessful expansions; successful expansion quota: 0.801199
+goal tree: 1713 successful expansions and 289 unsuccessful expansions; successful expansion quota: 0.855644
+RRT finished in 18773 milliseconds
+Found a path of size: 26
+
+7.
+start tree: 1360 vertices, 1309 successful expansions and 329 unsuccessful expansions; successful expansion quota: 0.799145
+goal tree: 1394 successful expansions and 244 unsuccessful expansions; successful expansion quota: 0.851038
+RRT finished in 13668 milliseconds
+Found a path of size: 18
+
+8.
+start tree: 7260 vertices, 7209 successful expansions and 1361 unsuccessful expansions; successful expansion quota: 0.84119
+goal tree: 7244 successful expansions and 1326 unsuccessful expansions; successful expansion quota: 0.845274
+RRT finished in 103822 milliseconds
+Found a path of size: 25
+
+
+9.
+start tree: 2787 vertices, 2736 successful expansions and 570 unsuccessful expansions; successful expansion quota: 0.827586
+goal tree: 2784 successful expansions and 522 unsuccessful expansions; successful expansion quota: 0.842105
+RRT finished in 35584 milliseconds
+Found a path of size: 20
+
+10.
+start tree: 5430 vertices, 5379 successful expansions and 1068 unsuccessful expansions; successful expansion quota: 0.834342
+goal tree: 5421 successful expansions and 1026 unsuccessful expansions; successful expansion quota: 0.840856
+RRT finished in 73829 milliseconds
+Found a path of size: 24
+
+
+

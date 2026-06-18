@@ -1,0 +1,6 @@
+Knots: from ../data/NoCollision/reduced0001.obj to ../data/NoCollision/reduced0033.obj
+succsessrate  & average_duration & average_iterations_quota & average_tree_size & average_expansion_quota & average_path_length \\
+50/50 & 106426 & 8740.7 & 14834.6 & 0.826247 & 25.08 \\
+
+Individual runs:
+Iterations Quota: 378, 413, 450, 666, 677, 690, 792, 904, 1257, 1330, 1553, 1600, 1824, 1834, 1871, 2220, 2579, 2655, 2880, 3303, 3532, 3949, 4516, 4707, 5095, 5337, 5696, 5888, 6084, 6310, 7257, 7931, 8614, 10771, 11158, 11486, 12937, 13057, 15310, 15428, 16989, 18104, 19259, 20047, 20166, 21079, 21169, 25568, 36066, 43649, 
