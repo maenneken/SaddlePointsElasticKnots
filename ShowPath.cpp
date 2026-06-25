@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
     auto startKnot = cp.getVars();
 
     std::vector<Eigen::VectorXd> Knots_with_neg_eigenvalues;
-
+    std::vector<Eigen::VectorXd> interpolated_path;
     static size_t i = 0;
     //set buttons
     int path_idx = 0;
@@ -186,6 +186,10 @@ int main(int argc, char** argv) {
         if(ImGui::Button("Save all Knots with neg eigenvalue")){
             savePathTxt("negativeEigenvalues.txt",Knots_with_neg_eigenvalues);
         }
+        if(ImGui::Button("Save InterpolatedPath")){
+            path = interpolated_path;
+            savePathTxt("InterpolatedPath.txt",path);
+        }
         if(ImGui::Button("Save Path")){
             savePathTxt("SavedPath.txt",path);
         }
@@ -197,11 +201,13 @@ int main(int argc, char** argv) {
     //main loop
     while (!polyscope::windowRequestsClose()) { 
         if(show_path){
+            interpolated_path.clear();
             for(size_t i = path_idx; i< path.size()-1;++i){
                 Eigen::VectorXd direction = path[i+1] - path[i];
                 direction.normalize();
                 auto current = path[i];
                 while((current - path[i+1]).norm()> step_size){
+                    interpolated_path.push_back(current);
                     current += step_size*direction;
                     cp.setVars(current);
                     std::cout       << std::endl << std::endl
@@ -228,7 +234,9 @@ int main(int argc, char** argv) {
                     Viewer.frameTick();
                     std::this_thread::sleep_for(std::chrono::milliseconds(sleep_mil));
                 }
+                
             }
+            interpolated_path.push_back(path.back());
             show_path=false;
             std::cout << RED << "There are  " << intersecion_counter << " intersections" << RESET << std::endl;
         }

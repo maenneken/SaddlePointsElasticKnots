@@ -21,6 +21,7 @@ Eigen::VectorXd springForce(double spring_constant,const Eigen::VectorXd& R_pre,
 Eigen::VectorXd perpForce(const Eigen::VectorXd& d_R, const Eigen::VectorXd& t);
 Eigen::VectorXd nebForce(double spring_constant, const Eigen::VectorXd & d_R,const Eigen::VectorXd& R_pre,const Eigen::VectorXd& R,const Eigen::VectorXd& R_next);
 Eigen::VectorXd climbingForce(const Eigen::VectorXd& d_R,const  Eigen::VectorXd& R_pre, const Eigen::VectorXd& R_next);
+double nebEnergy(ContactProblem& cp, const std::vector<Eigen::VectorXd>& path, double spring_constant);
 void nebGradientStep(ContactProblem& cp, std::vector<Eigen::VectorXd>& path,std::vector<Eigen::VectorXd>& F_neb, double spring_constant, double step_size, size_t max_id, bool climbingImage);
 void globalNebLineSearchStep(ContactProblem& cp, RowMatrix& R, double spring_constant, bool climbing_image, size_t idx_max, double& step_size);
 void globalNebLBFGSHesStep(ContactProblem& cp, RowMatrix& R, LBGFhistory& history, double spring_constant, bool climbing_image, size_t idx_max, double max_step);

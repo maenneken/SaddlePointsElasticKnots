@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
     static int k_expension = 1;
     static bool update_tree_visualization = true;
     static int max_depth = 15;
-    
+    double new_radius = rod_radius;
    
     bool running = false;
     bool show_path = false;
@@ -228,6 +228,24 @@ int main(int argc, char** argv) {
             update_tree_visualization = !update_tree_visualization;
             Viewer.update_tree_visualization = update_tree_visualization;
         }
+        ImGui::InputDouble("new radius", &new_radius);
+        if(ImGui::Button("Change radius")){
+            if(new_radius <= cp.m_options.dHat/2){
+                cp.m_options.dHat = new_radius * 2.0; 
+            }
+            else{
+               std::vector<Eigen::VectorXd> knots = {start_dofs, goal_dofs};
+                while(new_radius >= cp.m_options.dHat/2){
+                    increaseRadius(cp,knots);
+                    
+            } 
+            start_dofs = knots[0];
+            goal_dofs = knots[1];
+            }
+            Viewer.setKnot(DoFsToPos(start_dofs,n_pts),0.01 * new_radius);
+            Viewer.setGoalKnot(DoFsToPos(goal_dofs,n_pts),0.01 * new_radius);
+            
+        }
   
         ImGui::End();   
 
@@ -275,7 +293,7 @@ int main(int argc, char** argv) {
 
                     auto start_time = std::chrono::high_resolution_clock::now();
                     Viewer.setTree(rrt.start_tree, rrt.goal_tree);
-                    rrt.findConstrainedPath(cp, iterations, Viewer);
+                    auto tmp_path = rrt.findConstrainedPath(cp, iterations, Viewer);
                     auto end_time = std::chrono::high_resolution_clock::now();
                     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
                     if(rrt.path_length_quota > 0){
@@ -285,6 +303,8 @@ int main(int argc, char** argv) {
                         expension_quotas.push_back(rrt.expension_quota);
                         iterations_quotas.push_back(rrt.iterations_quota);
                         successful_runs++;  
+                        path = tmp_path;
+                        savePathTxt("benchmark_path_" + std::to_string(i) + ".txt", path, "Stepsize: " + std::to_string(stepsize) + ", StepLength: " + std::to_string(steplength) + ", GoalBias: " + std::to_string(goalBias) + ", NeighborRadius: " + std::to_string(neighbor_radius) + ", SampleProjDim: " + std::to_string(sample_proj_dim) + ", OneRandDirection: " + std::to_string(oneRandDirection) + ", AllPermutations: " + std::to_string(allPermutations) + ", GoalBiasForAllPermutations: " + std::to_string(goal_bias_for_all_permutations) + ", SampleInProjectionSpace: " + std::to_string(sample_in_projection_space) + ", UseConstraintProjectionForSampling: " + std::to_string(use_constraint_projection_for_sampling) + ", ReprojectDirection: " + std::to_string(reproject_direction));
                     }
                     std::cout << "Run " << i + 1 << ": " << duration << " milliseconds, Path Length: " << rrt.path_length_quota << ", Tree Size: " << rrt.tree_size_quota << ", Expansion Quota: " << rrt.expension_quota << std::endl;
                 }

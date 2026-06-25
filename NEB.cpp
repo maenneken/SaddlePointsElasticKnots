@@ -12,7 +12,7 @@ RowMatrix listToMatrix(const std::vector<Eigen::VectorXd>& vecs){
 }
 RowMatrix gradientMatrix(ContactProblem& cp, const RowMatrix& R){
     RowMatrix G(R.rows(), R.cols());
-    for (size_t i = 1; i < R.rows()-1; ++i) {  // Endpunkte überspringen
+    for (size_t i = 0; i < R.rows(); ++i) {
         cp.setVars(R.row(i));
         G.row(i) = cp.gradient(true).transpose();
     }
@@ -46,6 +46,16 @@ Eigen::VectorXd improved_tangent(const Eigen::VectorXd& R_pre, const Eigen::Vect
     }
     t.normalize();
     return t;
+}
+double nebEnergy(ContactProblem& cp, const std::vector<Eigen::VectorXd>& path, double spring_constant){
+    for(size_t i = 1; i < path.size()-1;++i){
+        cp.setVars(path[i]);
+        double E = cp.energy();
+        double E_spring = 0.5 * spring_constant * ((path[i+1] - path[i]).norm() - (path[i] - path[i-1]).norm());
+        E += E_spring;
+        return E;
+    }
+    return 0;
 }
 //F_spring = k * (||R_{i+1} - R_i|| - ||R_i - R_{i-1}0.2||) * tangent_i
 Eigen::VectorXd springForce(double spring_constant,const Eigen::VectorXd& R_pre, const Eigen::VectorXd& R,const Eigen::VectorXd& R_next,const Eigen::VectorXd& t){
@@ -87,42 +97,48 @@ Eigen::VectorXd climbingForce_improved(const Eigen::VectorXd& d_R, const Eigen::
                             R_next, E_pre, E_curr, E_next);
     return -d_R + 2.0 * (d_R.dot(t) * t);
 }
-RowMatrix globalNEBForce(RowMatrix& d_R, RowMatrix& R, double spring_constant, bool climbing_image, size_t idx_max){
-    int N = R.rows();
+RowMatrix globalNEBForce(RowMatrix& d_R, RowMatrix& R, 
+                          double spring_constant, bool climbing_image, 
+                          size_t idx_max)
+{
+    int N    = R.rows();
+    int cols = R.cols();
+    RowMatrix F = RowMatrix::Zero(N, cols);
 
-    // ---- Tangents ----
-    RowMatrix tangents = R.bottomRows(N-2) - R.topRows(N-2);
+    // ---- Endpoints: gradient only ----
+    F.row(0)     = -d_R.row(0);
+    F.row(N - 1) = -d_R.row(N - 1);
+
+    // ---- Tangents (internal only) ----
+    RowMatrix tangents = R.bottomRows(N - 2) - R.topRows(N - 2);
     for (int i = 0; i < tangents.rows(); ++i)
         tangents.row(i).normalize();
 
     // ---- Spring force ----
-    RowMatrix d_forward = R.middleRows(2, N-2) 
-                              - R.middleRows(1, N-2);
-
-    RowMatrix d_backward = R.middleRows(1, N-2) 
-                               - R.middleRows(0, N-2);
-
+    RowMatrix d_forward  = R.middleRows(2, N - 2) - R.middleRows(1, N - 2);
+    RowMatrix d_backward = R.middleRows(1, N - 2) - R.middleRows(0, N - 2);
     Eigen::VectorXd len_f = d_forward.rowwise().norm();
     Eigen::VectorXd len_b = d_backward.rowwise().norm();
-
     Eigen::VectorXd delta = spring_constant * (len_f - len_b);
-    RowMatrix F_spring = delta.asDiagonal() * tangents;
+    RowMatrix F_spring    = delta.asDiagonal() * tangents;
 
     // ---- Perpendicular force ----
-    RowMatrix grad_mid = d_R.middleRows(1, N-2);
-    Eigen::VectorXd proj = (grad_mid.cwiseProduct(tangents)).rowwise().sum();
-    RowMatrix F_perp = -grad_mid + proj.asDiagonal() * tangents;
+    RowMatrix grad_mid    = d_R.middleRows(1, N - 2);
+    Eigen::VectorXd proj  = (grad_mid.cwiseProduct(tangents)).rowwise().sum();
+    RowMatrix F_perp      = -grad_mid + proj.asDiagonal() * tangents;
 
-    // ---- Total NEB force ----
-    RowMatrix F_neb = F_spring + F_perp;
+    // ---- Assign internal forces ----
+    F.middleRows(1, N - 2) = F_spring + F_perp;
 
-    if(climbing_image){
-        //N hole path - 2 internal images, also idx_max is in [1, N-2] R is length N, so R.row(idx_max) is the image with highest energy
-        //F_neb is only defined for internal images, so F_neb.row(idx_max-1) corresponds to the image with highest energy
-        F_neb.row(idx_max-1) = climbingForce(d_R.row(idx_max),R.row(idx_max-1),R.row(idx_max+1));
+    // ---- Climbing image ----
+    if (climbing_image) {
+        F.row(idx_max) = climbingForce(
+            d_R.row(idx_max), 
+            R.row(idx_max - 1), 
+            R.row(idx_max + 1));
     }
 
-    return F_neb;
+    return F;
 }
 
 //gradient Step
@@ -154,67 +170,62 @@ void nebGradientStep(ContactProblem& cp, std::vector<Eigen::VectorXd>& path,std:
 }
 
 void globalNebLineSearchStep(ContactProblem& cp, RowMatrix& R,
-                           double spring_constant, bool climbing_image,
-                           size_t idx_max, double& step_size)
+                              double spring_constant, bool climbing_image,
+                              size_t idx_max, double& step_size)
 {
-    int rows_internal = R.rows() - 2;
+    int n    = R.rows();
     int cols = R.cols();
 
     RowMatrix d_R   = gradientMatrix(cp, R);
-    RowMatrix F_mat = globalNEBForce(d_R, R, spring_constant, climbing_image, idx_max);
-    Eigen::VectorXd F = Eigen::Map<Eigen::VectorXd>(F_mat.data(), F_mat.size());
+    RowMatrix F_mat = globalNEBForce(d_R, R, spring_constant,
+                                     climbing_image, idx_max);
 
+    Eigen::VectorXd F = Eigen::Map<Eigen::VectorXd>(
+        F_mat.data(), F_mat.size());
     const double F_norm_sq = F.squaredNorm();
-    const double c         = 1e-2;
-    const double decay     = 0.5;
-    const int    max_ls    = 10;
 
-    double best_size     = step_size;
-    double best_norm_sq  = std::numeric_limits<double>::infinity();
-    int    ls_count      = 0;
+    const double c      = 1e-2;
+    const double decay  = 0.5;
+    const int    max_ls = 10;
 
+    double best_size    = step_size;
+    double best_norm_sq = std::numeric_limits<double>::infinity();
+
+    // Save full path including endpoints
     Eigen::VectorXd R_old = Eigen::Map<Eigen::VectorXd>(
-        R.middleRows(1, rows_internal).data(), rows_internal * cols);
+        R.data(), n * cols);
 
     double alpha = step_size;
     for (int ls = 0; ls < max_ls; ++ls) {
-        ls_count = ls + 1;
-
         RowMatrix R_trial = R;
         Eigen::Map<Eigen::VectorXd>(
-            R_trial.middleRows(1, rows_internal).data(),
-            rows_internal * cols) = R_old + alpha * F;
+            R_trial.data(), n * cols) = R_old + alpha * F;
 
         RowMatrix d_R_trial   = gradientMatrix(cp, R_trial);
         RowMatrix F_trial_mat = globalNEBForce(
             d_R_trial, R_trial, spring_constant, climbing_image, idx_max);
+
         double F_trial_norm_sq = F_trial_mat.squaredNorm();
 
         if (F_trial_norm_sq < best_norm_sq) {
             best_norm_sq = F_trial_norm_sq;
             best_size    = alpha;
         }
-
         if (F_trial_norm_sq <= F_norm_sq * (1.0 - 2.0 * c * alpha))
             break;
 
         alpha *= decay;
     }
 
-    Eigen::Map<Eigen::VectorXd>(
-        R.middleRows(1, rows_internal).data(),
-        rows_internal * cols) = R_old + best_size * F;
+    // Apply best step to full path
+    Eigen::Map<Eigen::VectorXd>(R.data(), n * cols)
+        = R_old + best_size * F;
 
-    // Adaptives step_size
-
-    if (best_size >= step_size * 0.8) {
-        // kaum reduziert → können größer werden
+    // Adaptive step size
+    if (best_size >= step_size * 0.8)
         step_size = std::min(step_size * 1.2, 0.5);
-    } else if (best_size <= step_size * 0.2) {
-        // stark reduziert → zu groß
+    else if (best_size <= step_size * 0.2)
         step_size = std::max(step_size * 0.7, 1e-4);
-    }
-// dazwischen → neutral
 }
 
 void globalNebLBFGSHesStep(ContactProblem& cp, RowMatrix& R, LBGFhistory& history,

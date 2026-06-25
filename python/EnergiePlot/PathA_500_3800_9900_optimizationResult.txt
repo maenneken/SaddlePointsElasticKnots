@@ -1,0 +1,10 @@
+Optimization finished after 9900 iterations.
+NEB Energy: 1.05804
+Max NEB Force: 0.05
+Optimization took: 39383 ms
+Energies: 
+0.824956, 1.05846, 1.35942, 1.12543, 1.00685, 0.916653, 
+NEB Forces: 
+0, 0.0352602, 0.0498312, 0.0354269, 0.0268992, 0, 
+Gradients: 
+0.00256458, 0.0355729, 0.0497766, 0.0353148, 0.026919, 0.0235647, 
