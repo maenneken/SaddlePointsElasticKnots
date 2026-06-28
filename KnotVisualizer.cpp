@@ -4,6 +4,7 @@ KnotVisualizer::KnotVisualizer() {
     polyscope::init();
     polyscope::options::autocenterStructures = true;
     polyscope::options::autoscaleStructures = true;
+    polyscope::options::groundPlaneEnabled = false;
 }
 
 void KnotVisualizer::setKnot(const std::vector<Eigen::Vector3d>& pts, const double radius) {

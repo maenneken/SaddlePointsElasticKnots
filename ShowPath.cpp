@@ -116,6 +116,7 @@ int main(int argc, char** argv) {
     double new_radius = 1;
     std::vector<Eigen::VectorXd> possibleSelfIntersections;
 
+
     Viewer.setUserCallback([&]() {
         ImGui::Begin("Controls");
         ImGui::PushItemWidth(200);
@@ -193,6 +194,13 @@ int main(int argc, char** argv) {
         if(ImGui::Button("Save Path")){
             savePathTxt("SavedPath.txt",path);
         }
+        if(ImGui::Button("Screenshot Path")){
+            for(size_t i = 0; i< path.size();++i){
+                Viewer.updateKnot(DoFsToPos(path[i], n_pts));
+                polyscope::screenshot();
+            }
+        }
+
         ImGui::End();   
 
     });
@@ -203,6 +211,7 @@ int main(int argc, char** argv) {
         if(show_path){
             interpolated_path.clear();
             for(size_t i = path_idx; i< path.size()-1;++i){
+                
                 Eigen::VectorXd direction = path[i+1] - path[i];
                 direction.normalize();
                 auto current = path[i];

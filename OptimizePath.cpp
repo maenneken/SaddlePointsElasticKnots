@@ -130,26 +130,27 @@ int main(int argc, char** argv) {
 
     LBGFhistory history;
 
-    bool running = true;
-    bool benchmarking = true;
+    bool running = false;
+    bool benchmarking = false;
     bool show_path = false;
-    std::vector<double> benchmark_max_neb_forces = {1.0, 0.5, 0.1, 0.05, 0.01};
+    std::vector<double> benchmark_max_neb_forces = {0.005, 0.001,0.0005, 0.0001, 0.00005, 0.00001, 0.000005, 0.000001};
     size_t benchmark_run = 0;
     size_t it = 0;
     std::vector<Eigen::Vector3d> Positon = DoFsToPos(path[path_idx], n_pts);
     
 
-    auto start_knot = path[0];
-    auto goal_knot = path.back();
-    relax_start_goal(cp, start_knot, goal_knot);
+    //// relax start and goal
+    // auto start_knot = path[0];
+    // auto goal_knot = path.back();
+    // relax_start_goal(cp, start_knot, goal_knot);
 
-    path.insert(path.begin(), start_knot);
-    path.push_back(goal_knot);
-    Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
+    // path.insert(path.begin(), start_knot);
+    // path.push_back(goal_knot);
+    // Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
 
-    pathMatrix = listToMatrix(path);
-    F_neb.resize(path.size(), Eigen::VectorXd::Zero(path[0].size()));
-    d_search.resize(path.size(), Eigen::VectorXd::Zero(path[0].size()));
+    // pathMatrix = listToMatrix(path);
+    // F_neb.resize(path.size(), Eigen::VectorXd::Zero(path[0].size()));
+    // d_search.resize(path.size(), Eigen::VectorXd::Zero(path[0].size()));
 
 
     //set buttons
