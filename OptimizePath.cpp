@@ -287,6 +287,7 @@ int main(int argc, char** argv) {
                 cp.setVars(path[path_idx]);
                 Viewer.updateKnot(DoFsToPos(path[path_idx], n_pts));
                 Viewer.showNodeGradient(DoFsToPos(-cp.gradient(true), n_pts));
+                
                 current_F_neb = Eigen::VectorXd::Zero(path[0].size());
                 if(path_idx > 0 && path_idx < path.size() -1){
                     if(climbingImage && path_idx == max_id){
@@ -297,6 +298,15 @@ int main(int argc, char** argv) {
                     }
                 }
                 Viewer.showNodeGradientModified(DoFsToPos(current_F_neb, n_pts));
+                pr.setDoFs(path[path_idx]);
+                auto full_gradient = pr.gradient(true, PeriodicRod::EnergyType::Twist);
+                auto pos_gradient = full_gradient.head(3 * n_pts);
+
+                std::cout << "Twist to pos contribution (norm):    " << pos_gradient.norm() << std::endl;
+                std::cout << "Twist to pos contribution (max|.|):  " << pos_gradient.cwiseAbs().maxCoeff() << std::endl;
+                std::cout << "Twist to pos contribution (sum):     " << pos_gradient.sum() << std::endl;
+
+                
                 std::cout       << std::endl << std::endl
                                 << BLUE << "It: " << it << RESET
                                 << ", current Energy: " << cp.energy() 

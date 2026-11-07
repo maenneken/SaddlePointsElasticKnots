@@ -698,6 +698,7 @@ std::vector<Eigen::VectorXd> RRT::findConstrainedPath(ContactProblem& cp, size_t
         Viewer.frameTick();  
         
     }
+    tree_size_quota = start_tree.size() + goal_tree.size();
     printTreeQuota();
     return path;
 }

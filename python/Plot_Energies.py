@@ -48,42 +48,57 @@ def print_table(snapshots):
     """Print a LaTeX-ready summary table to the terminal."""
     header = (
         f"{'max(F_NEB)':<14} "
-        f"{'max(F_spring||)':<16} "
-        f"{'E_NEB':<14} "
-        f"{'max(E_elastic)':<16} "
-        f"{'max(grad E)':<14} "
-        f"{'Time (ms)':<12} "
+        f"{'max(F_spring)':<14} "
+        f"{'E_NEB':<10} "
+        f"{'max(E_el)':<12} "
+        f"{'max(grad)':<12} "
+        f"{'max(bend)':<12} "
+        f"{'max(twist)':<12} "
+        f"{'max(stretch)':<14} "
+        f"{'Time(s)':<10} "
         f"{'Iterations'}"
     )
     sep = "-" * len(header)
     print("\n" + sep)
     print(header)
     print(sep)
-    for max_f, data in sorted(snapshots.items(), reverse=True):  # largest first
+    for max_f, data in sorted(snapshots.items(), reverse=True):
         time_s = f"{data['time_ms']/1000:.0f}" if data['time_ms'] is not None else "N/A"
+        max_bend    = max(data['bend_energies'])    if data['bend_energies']    else None
+        max_twist   = max(data['twist_energies'])   if data['twist_energies']   else None
+        max_stretch = max(data['stretch_energies']) if data['stretch_energies'] else None
         print(
-            f"{data['max_force']        if data['max_force']    is not None else 'N/A':<14.3g} "
-            f"{data['max_spring']       if data['max_spring']   is not None else 'N/A':<16.4g} "
-            f"{data['E_neb']            if data['E_neb']        is not None else 'N/A':<14.2g} "
-            f"{data['max_E_elastic']    if data['max_E_elastic']is not None else 'N/A':<16.2g} "
-            f"{data['max_grad']         if data['max_grad']     is not None else 'N/A':<14.3g} "
-            f"{time_s:<12} "
-            f"{data['iterations']       if data['iterations']   is not None else 'N/A'}"
+            f"{data['max_force']     if data['max_force']    is not None else 'N/A':<14.3g} "
+            f"{data['max_spring']    if data['max_spring']   is not None else 'N/A':<14.4g} "
+            f"{data['E_neb']         if data['E_neb']        is not None else 'N/A':<10.2g} "
+            f"{data['max_E_elastic'] if data['max_E_elastic']is not None else 'N/A':<12.2g} "
+            f"{data['max_grad']      if data['max_grad']     is not None else 'N/A':<12.3g} "
+            f"{max_bend              if max_bend             is not None else 'N/A':<12.3g} "
+            f"{max_twist             if max_twist            is not None else 'N/A':<12.3g} "
+            f"{max_stretch           if max_stretch          is not None else 'N/A':<14.3g} "
+            f"{time_s:<10} "
+            f"{data['iterations']   if data['iterations']   is not None else 'N/A'}"
         )
     print(sep)
 
-    # LaTeX rows for easy copy-paste
+    # LaTeX rows
     print("\nLaTeX rows (copy into tabular):")
     print(sep)
-    for max_f, data in sorted(snapshots.items(), reverse=True):  # largest first
-        def fmt(v): return f"{v:.4g}" if v is not None else "--"
-        time_s = f"{data['time_ms']/1000:.0f}" if data['time_ms'] is not None else "--"
+    for max_f, data in sorted(snapshots.items(), reverse=True):
+        def fmt(v): return f"{v:.3g}" if v is not None else "--"
+        time_s      = f"{data['time_ms']/1000:.0f}" if data['time_ms'] is not None else "--"
+        max_bend    = max(data['bend_energies'])    if data['bend_energies']    else None
+        max_twist   = max(data['twist_energies'])   if data['twist_energies']   else None
+        max_stretch = max(data['stretch_energies']) if data['stretch_energies'] else None
         print(
             f"{fmt(data['max_force'])} & "
             f"{fmt(data['max_spring'])} & "
             f"{fmt(data['E_neb'])} & "
             f"{fmt(data['max_E_elastic'])} & "
             f"{fmt(data['max_grad'])} & "
+            f"{fmt(max_bend)} & "
+            f"{fmt(max_twist)} & "
+            f"{fmt(max_stretch)} & "
             f"{time_s} s / "
             f"{data['iterations'] if data['iterations'] is not None else '--'} \\\\"
         )

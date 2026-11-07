@@ -298,14 +298,14 @@ int main(int argc, char** argv) {
                     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
                     if(rrt.path_length_quota > 0){
                         path_lengths.push_back(rrt.path_length_quota);
-                        durations.push_back(duration);
-                        tree_sizes.push_back(rrt.tree_size_quota);
-                        expension_quotas.push_back(rrt.expension_quota);
                         iterations_quotas.push_back(rrt.iterations_quota);
                         successful_runs++;  
                         path = tmp_path;
                         savePathTxt("benchmark_path_" + std::to_string(i) + ".txt", path, "Stepsize: " + std::to_string(stepsize) + ", StepLength: " + std::to_string(steplength) + ", GoalBias: " + std::to_string(goalBias) + ", NeighborRadius: " + std::to_string(neighbor_radius) + ", SampleProjDim: " + std::to_string(sample_proj_dim) + ", OneRandDirection: " + std::to_string(oneRandDirection) + ", AllPermutations: " + std::to_string(allPermutations) + ", GoalBiasForAllPermutations: " + std::to_string(goal_bias_for_all_permutations) + ", SampleInProjectionSpace: " + std::to_string(sample_in_projection_space) + ", UseConstraintProjectionForSampling: " + std::to_string(use_constraint_projection_for_sampling) + ", ReprojectDirection: " + std::to_string(reproject_direction));
                     }
+                    durations.push_back(duration);
+                    tree_sizes.push_back(rrt.tree_size_quota);
+                    expension_quotas.push_back(rrt.expension_quota);
                     std::cout << "Run " << i + 1 << ": " << duration << " milliseconds, Path Length: " << rrt.path_length_quota << ", Tree Size: " << rrt.tree_size_quota << ", Expansion Quota: " << rrt.expension_quota << std::endl;
                 }
                 double average_duration = std::accumulate(durations.begin(), durations.end(), 0.0) / durations.size();
