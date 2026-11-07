@@ -60,23 +60,32 @@ The computed transition pathways provide insight into the energy landscape and t
 
 
 
-# ElasticKnots
-A framework to simulate knotted elastic rods with self-contacts.
+## Acknowledgements and Framework
 
-This is the codebase associated to the SIGGRAPH 2023 paper [Computational Exploration of Multistable Elastic Knots](https://infoscience.epfl.ch/record/302408).
+This project is based on the **ElasticKnots** framework, developed for the simulation of knotted elastic rods with self-contacts.
 
-To know more about our research, please visit the project [webpage](https://www.epfl.ch/labs/gcm/research-projects/elastic-knots/).
+The framework is associated with the SIGGRAPH 2023 paper:
+
+*Computational Exploration of Multistable Elastic Knots.*
+
+The original framework was used as the basis for the motion planning and Minimum Energy Path computations presented in this project.
+
+- **Original repository:** [EPFL-LGG/ElasticKnots](https://github.com/EPFL-LGG/ElasticKnots)
+- **Research paper:** [Computational Exploration of Multistable Elastic Knots](https://infoscience.epfl.ch/record/302408)
+- **Project webpage:** [Elastic Knots – EPFL](https://www.epfl.ch/labs/gcm/research-projects/elastic-knots/)
+
+The original ElasticKnots framework and its underlying simulation capabilities are credited to the respective authors. The motion planning implementation and Minimum Energy Path computations described in this project were developed as part of my Master's thesis at TU Berlin.
 
 # Getting Started
 
 ## C++ Code Dependencies
-To install the required dependencies, please follow the instructions from https://github.com/jpanetta/ElasticRods
+To install the required dependencies, please follow the instructions from [https://github.com/jpanetta/ElasticRods](https://github.com/EPFL-LGG/ElasticKnots)
 
 ## Obtaining the Code
 Clone this repository *recursively* so that its submodules are also downloaded:
 
 ```
-git clone git@github.com:EPFL-LGG/ElasticKnots.git --recurse-submodules
+git clone git@github.com:maenneken/SaddlePointsElasticKnots.git --recurse-submodules
 ```
 ## Note from Simon
 you might need to delete pybind11 and clone the newest yourself and add to attr.h "#include <cstdint>". (path: 3rdparty/ElasticKnots/3rdparty/ElasticRods/3rdparty/MeshFEM/3rdparty/pybind11/include/pybind11)
