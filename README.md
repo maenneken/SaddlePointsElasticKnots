@@ -1,3 +1,65 @@
+# Minimum Energy Paths between Multistable Elastic Knots
+
+## Overview
+
+This project investigates transition pathways between distinct equilibrium configurations of multistable elastic knots.
+
+Building upon the ElasticKnots framework, the approach combines sampling-based robotic motion planning with energy-based path optimization to compute Minimum Energy Paths (MEPs) between configurations of the same knot topology.
+
+A central challenge is that conventional linear interpolation between configurations may introduce self-intersections and violate the topology of the knot.
+
+To address this, sampling-based tree planners are used to construct feasible initial paths, which are subsequently optimized using the Nudged Elastic Band (NEB) method.
+
+## Research Contributions
+
+- Implemented RRT-EST-based motion planning in C++.
+- Developed a topology-preserving approach for connecting distinct equilibrium configurations of elastic knots.
+- Computed initial transition paths using sampling-based motion planning.
+- Optimized transition pathways using the Nudged Elastic Band (NEB) method.
+- Computed and visualized Minimum Energy Paths between multistable equilibrium states.
+- Evaluated the resulting paths using quantitative energy and planning metrics.
+
+## Methodology
+
+### 1. Configuration Space Exploration
+
+Sampling-based motion planning is employed to explore the configuration space and identify feasible transitions between equilibrium configurations.
+
+### 2. Initial Path Construction
+
+RRT-EST is utilized to construct an initial path while avoiding self-intersections that would violate the knot topology.
+
+### 3. Minimum Energy Path Optimization
+
+The initial path is refined using the Nudged Elastic Band method to obtain an energy-minimizing transition pathway.
+
+### 4. Transition State Identification
+
+The maximum-energy configuration along the optimized path is used to identify a candidate transition state between two equilibrium configurations.
+
+## Results
+
+The computed transition pathways provide insight into the energy landscape and the transitions between multistable equilibrium states of elastic knots.
+
+[Insert energy profile along the MEP]
+
+[Insert visualization of the RRT-EST exploration]
+
+[Insert animation of the optimized transition pathway]
+
+## Technical Skills
+
+- C++
+- Sampling-based Motion Planning
+- RRT-EST
+- Nudged Elastic Band (NEB)
+- Minimum Energy Path Computation
+- Computational Mechanics
+- Elastic Rod Simulation
+- Algorithm Design and Quantitative Evaluation
+
+
+
 # ElasticKnots
 A framework to simulate knotted elastic rods with self-contacts.
 
@@ -19,42 +81,12 @@ git clone git@github.com:EPFL-LGG/ElasticKnots.git --recurse-submodules
 ## Note from Simon
 you might need to delete pybind11 and clone the newest yourself and add to attr.h "#include <cstdint>". (path: 3rdparty/ElasticKnots/3rdparty/ElasticRods/3rdparty/MeshFEM/3rdparty/pybind11/include/pybind11)
 
-
-## Python Dependencies
-The file `environment.yml` contains all the Python dependencies needed to run the demo Jupyter notebooks.
-Create the conda environment `ElasticKnots`
-```
-conda env create -f environment.yml
-```
-
-and activate it (make sure to do this before compiling the Python bindings):
-```
-conda activate ElasticKnots
-```
-
 ## Building
 Build the C++ code and its Python bindings:
 
 ```
 python setup.py
 ```
-
-Alternatively, you can manually build the project using cmake and your favorite build system. For example, with `ninja`:
-```
-cd ElasticKnots
-mkdir build && cd build
-cmake .. -GNinja
-ninja
-```
-
-# Running the Jupyter Notebooks
-Launch Jupyter lab from the root directory:
-
-```
-jupyter lab
-```
-
-Now try opening and running an example notebook, e.g., `python/Demo-1-Simulation.ipynb` to test the simulation framework.
 
 
 # Debug for me
